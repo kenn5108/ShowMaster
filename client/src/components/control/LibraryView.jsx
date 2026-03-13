@@ -5,6 +5,7 @@ import { useLongPress } from '../../hooks/useLongPress';
 import { useSocket } from '../../contexts/SocketContext';
 import Popup from '../shared/Popup';
 import ContextMenu from '../shared/ContextMenu';
+import TagFilter, { filterByTags } from '../shared/TagFilter';
 
 export default function LibraryView({ onNavigate }) {
   const { state } = useSocket();
@@ -12,6 +13,7 @@ export default function LibraryView({ onNavigate }) {
   const [sortBy, setSortBy] = useState('title');
   const [sortDir, setSortDir] = useState('asc');
   const [search, setSearch] = useState('');
+  const [selectedTags, setSelectedTags] = useState(new Set());
   const [popup, setPopup] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [playlists, setPlaylists] = useState([]);
@@ -40,19 +42,31 @@ export default function LibraryView({ onNavigate }) {
     }
   };
 
+  const toggleTag = (tag) => {
+    setSelectedTags(prev => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  };
+
+  const clearTags = () => setSelectedTags(new Set());
+
+  // Apply tag filter (AND logic) on top of search results
+  const filteredSongs = filterByTags(songs, selectedTags);
+
   const handleShortPress = (song) => {
     const queue = state.queue || [];
     if (queue.length === 0) {
-      // File vide → ajout direct (en bas, sera position 0)
       addToQueue(song.id, 'bottom');
     } else {
-      // File non vide → popup choix haut/bas
       setPopup({
         title: `${song.title}`,
         song,
         actions: [
-          { label: '⬆ Ajouter en haut de file', onClick: () => addToQueue(song.id, 'top') },
-          { label: '⬇ Ajouter en bas de file', onClick: () => addToQueue(song.id, 'bottom') },
+          { label: '\u2B06 Ajouter en haut de file', onClick: () => addToQueue(song.id, 'top') },
+          { label: '\u2B07 Ajouter en bas de file', onClick: () => addToQueue(song.id, 'bottom') },
         ],
       });
     }
@@ -65,11 +79,11 @@ export default function LibraryView({ onNavigate }) {
       x, y,
       items: [
         ...playlists.map(pl => ({
-          label: `Ajouter à "${pl.name}"`,
+          label: `Ajouter \u00e0 "${pl.name}"`,
           onClick: () => api.post(`/playlists/${pl.id}/items`, { songId: song.id }).catch(() => {}),
         })),
         { separator: true },
-        { label: 'Éditer les paroles', onClick: () => onNavigate('lyrics', { songId: song.id }) },
+        { label: '\u00c9diter les paroles', onClick: () => onNavigate('lyrics', { songId: song.id }) },
         { label: 'Ouvrir la synchro', onClick: () => onNavigate('sync', { songId: song.id }) },
       ],
     });
@@ -82,7 +96,7 @@ export default function LibraryView({ onNavigate }) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <h2 style={{ fontSize: 18, flex: 1 }}>Bibliothèque</h2>
+        <h2 style={{ fontSize: 18, flex: 1 }}>Biblioth\u00e8que</h2>
         <button className="btn btn-sm btn-secondary" onClick={() => api.post('/library/sync').then(loadSongs)}>
           Sync RocketShow
         </button>
@@ -94,23 +108,30 @@ export default function LibraryView({ onNavigate }) {
         placeholder="Rechercher un titre ou artiste..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        style={{ marginBottom: 12 }}
+        style={{ marginBottom: 8 }}
+      />
+
+      <TagFilter
+        items={songs}
+        selectedTags={selectedTags}
+        onToggleTag={toggleTag}
+        onClear={clearTags}
       />
 
       <table className="song-table">
         <thead>
           <tr>
             <th onClick={() => toggleSort('title')}>
-              Titre {sortBy === 'title' && (sortDir === 'asc' ? '↑' : '↓')}
+              Titre {sortBy === 'title' && (sortDir === 'asc' ? '\u2191' : '\u2193')}
             </th>
             <th onClick={() => toggleSort('artist')}>
-              Artiste {sortBy === 'artist' && (sortDir === 'asc' ? '↑' : '↓')}
+              Artiste {sortBy === 'artist' && (sortDir === 'asc' ? '\u2191' : '\u2193')}
             </th>
-            <th style={{ width: 70, textAlign: 'right' }}>Durée</th>
+            <th style={{ width: 70, textAlign: 'right' }}>Dur\u00e9e</th>
           </tr>
         </thead>
         <tbody>
-          {songs.map(song => (
+          {filteredSongs.map(song => (
             <SongRow
               key={song.id}
               song={song}
@@ -121,9 +142,9 @@ export default function LibraryView({ onNavigate }) {
         </tbody>
       </table>
 
-      {songs.length === 0 && (
+      {filteredSongs.length === 0 && (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
-          {search ? 'Aucun résultat' : 'Bibliothèque vide — synchronisez avec RocketShow'}
+          {search || selectedTags.size > 0 ? 'Aucun r\u00e9sultat' : 'Biblioth\u00e8que vide \u2014 synchronisez avec RocketShow'}
         </div>
       )}
 
@@ -147,7 +168,7 @@ function SongRow({ song, onShortPress, onLongPress }) {
           {song.bpm && <span className="badge badge-bpm">{song.bpm} BPM</span>}
         </div>
       </td>
-      <td><span className="song-artist">{song.artist || '—'}</span></td>
+      <td><span className="song-artist">{song.artist || '\u2014'}</span></td>
       <td style={{ textAlign: 'right' }}>
         <span className="song-duration">{formatTime(song.duration_ms)}</span>
       </td>

@@ -337,6 +337,32 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 /* Search */
 .search-input { width: 100%; padding: 10px 16px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; }
 
+/* Tag filter bar */
+.tag-filter-bar {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 6px 0 10px; align-items: center;
+}
+.tag-filter-chip {
+  display: inline-flex; align-items: center;
+  padding: 4px 12px; border-radius: 14px;
+  font-size: 12px; font-weight: 500;
+  background: var(--bg-card); color: var(--text-secondary);
+  border: 1px solid transparent;
+  transition: all 0.15s; cursor: pointer; user-select: none;
+}
+.tag-filter-chip:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+.tag-filter-chip.active {
+  background: var(--accent); color: white;
+  border-color: var(--accent);
+}
+.tag-filter-chip.active:hover { background: var(--accent-hover); }
+.tag-filter-clear {
+  font-size: 11px; color: var(--text-muted); padding: 4px 10px;
+  border-radius: 14px; background: rgba(255,255,255,0.05);
+  cursor: pointer; transition: color 0.15s;
+}
+.tag-filter-clear:hover { color: var(--error); }
+
 /* ════════════════════════════════════
    RESPONSIVE
    ════════════════════════════════════ */

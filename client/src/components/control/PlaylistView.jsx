@@ -5,6 +5,7 @@ import { useSocket } from '../../contexts/SocketContext';
 import { useLongPress } from '../../hooks/useLongPress';
 import Popup from '../shared/Popup';
 import ContextMenu from '../shared/ContextMenu';
+import TagFilter, { filterByTags } from '../shared/TagFilter';
 
 export default function PlaylistView({ playlistId, onNavigate }) {
   const { state } = useSocket();
@@ -12,6 +13,8 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   const [items, setItems] = useState([]);
   const [sortBy, setSortBy] = useState('position');
   const [sortDir, setSortDir] = useState('asc');
+  const [search, setSearch] = useState('');
+  const [selectedTags, setSelectedTags] = useState(new Set());
   const [popup, setPopup] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const liveLock = state.liveLock;
@@ -22,6 +25,9 @@ export default function PlaylistView({ playlistId, onNavigate }) {
     if (!playlistId) return;
     api.get(`/playlists/${playlistId}`).then(setPlaylist).catch(() => {});
     loadItems();
+    // Reset filters when switching playlists
+    setSearch('');
+    setSelectedTags(new Set());
   }, [playlistId, sortBy, sortDir]);
 
   const loadItems = () => {
@@ -37,6 +43,17 @@ export default function PlaylistView({ playlistId, onNavigate }) {
       setSortDir('asc');
     }
   };
+
+  const toggleTag = (tag) => {
+    setSelectedTags(prev => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  };
+
+  const clearTags = () => setSelectedTags(new Set());
 
   const canDrag = sortBy === 'position' && !liveLock;
 
@@ -57,15 +74,13 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   const handleShortPress = (item) => {
     const queue = state.queue || [];
     if (queue.length === 0) {
-      // File vide → ajout direct
       api.post('/queue/add', { songId: item.song_id, position: 'bottom' }).catch(() => {});
     } else {
-      // File non vide → popup choix haut/bas
       setPopup({
         title: item.title,
         actions: [
-          { label: '⬆ Ajouter en haut de file', onClick: () => api.post('/queue/add', { songId: item.song_id, position: 'top' }) },
-          { label: '⬇ Ajouter en bas de file', onClick: () => api.post('/queue/add', { songId: item.song_id, position: 'bottom' }) },
+          { label: '\u2B06 Ajouter en haut de file', onClick: () => api.post('/queue/add', { songId: item.song_id, position: 'top' }) },
+          { label: '\u2B07 Ajouter en bas de file', onClick: () => api.post('/queue/add', { songId: item.song_id, position: 'bottom' }) },
         ],
       });
     }
@@ -79,11 +94,22 @@ export default function PlaylistView({ playlistId, onNavigate }) {
       items: [
         { label: 'Supprimer de la playlist', onClick: () => { api.delete(`/playlists/${playlistId}/items/${item.id}`).then(loadItems); } },
         { separator: true },
-        { label: 'Éditer les paroles', onClick: () => onNavigate('lyrics', { songId: item.song_id }) },
+        { label: '\u00c9diter les paroles', onClick: () => onNavigate('lyrics', { songId: item.song_id }) },
         { label: 'Ouvrir la synchro', onClick: () => onNavigate('sync', { songId: item.song_id }) },
       ],
     });
   };
+
+  // Apply text search + tag filters
+  let filteredItems = items;
+  if (search) {
+    const q = search.toLowerCase();
+    filteredItems = filteredItems.filter(item =>
+      (item.title || '').toLowerCase().includes(q) ||
+      (item.artist || '').toLowerCase().includes(q)
+    );
+  }
+  filteredItems = filterByTags(filteredItems, selectedTags);
 
   if (!playlist) return <div style={{ padding: 40, color: 'var(--text-muted)' }}>Chargement...</div>;
 
@@ -101,28 +127,44 @@ export default function PlaylistView({ playlistId, onNavigate }) {
         )}
       </div>
 
+      <input
+        className="search-input"
+        type="text"
+        placeholder="Rechercher dans la playlist..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        style={{ marginBottom: 8 }}
+      />
+
+      <TagFilter
+        items={items}
+        selectedTags={selectedTags}
+        onToggleTag={toggleTag}
+        onClear={clearTags}
+      />
+
       <table className="song-table">
         <thead>
           <tr>
             <th style={{ width: 50 }} onClick={() => toggleSort('position')}>
-              # {sortBy === 'position' && (sortDir === 'asc' ? '↑' : '↓')}
+              # {sortBy === 'position' && (sortDir === 'asc' ? '\u2191' : '\u2193')}
             </th>
             <th onClick={() => toggleSort('title')}>
-              Titre {sortBy === 'title' && (sortDir === 'asc' ? '↑' : '↓')}
+              Titre {sortBy === 'title' && (sortDir === 'asc' ? '\u2191' : '\u2193')}
             </th>
             <th onClick={() => toggleSort('artist')}>
-              Artiste {sortBy === 'artist' && (sortDir === 'asc' ? '↑' : '↓')}
+              Artiste {sortBy === 'artist' && (sortDir === 'asc' ? '\u2191' : '\u2193')}
             </th>
-            <th style={{ width: 70, textAlign: 'right' }}>Durée</th>
+            <th style={{ width: 70, textAlign: 'right' }}>Dur\u00e9e</th>
           </tr>
         </thead>
         <tbody>
-          {items.map((item, idx) => (
+          {filteredItems.map((item, idx) => (
             <PlaylistItemRow
               key={item.id}
               item={item}
               idx={idx}
-              canDrag={canDrag}
+              canDrag={canDrag && !search && selectedTags.size === 0}
               onDragStart={() => handleDragStart(idx)}
               onDragOver={(e) => handleDragOver(e, idx)}
               onDrop={handleDrop}
@@ -133,9 +175,9 @@ export default function PlaylistView({ playlistId, onNavigate }) {
         </tbody>
       </table>
 
-      {items.length === 0 && (
+      {filteredItems.length === 0 && (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
-          Playlist vide
+          {search || selectedTags.size > 0 ? 'Aucun r\u00e9sultat' : 'Playlist vide'}
         </div>
       )}
 
@@ -159,7 +201,7 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
       style={{ cursor: 'pointer' }}
     >
       <td>
-        {canDrag && <span className="drag-handle">⠿</span>}
+        {canDrag && <span className="drag-handle">\u2817</span>}
         {!canDrag && <span style={{ color: 'var(--text-muted)' }}>{idx + 1}</span>}
       </td>
       <td>
@@ -170,7 +212,7 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
           {item.bpm && <span className="badge badge-bpm">{item.bpm} BPM</span>}
         </div>
       </td>
-      <td><span className="song-artist">{item.artist || '—'}</span></td>
+      <td><span className="song-artist">{item.artist || '\u2014'}</span></td>
       <td style={{ textAlign: 'right' }}>
         <span className="song-duration">{formatTime(item.duration_ms)}</span>
       </td>
