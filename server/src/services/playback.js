@@ -94,6 +94,7 @@ function onSongEnd() {
 
 /**
  * Play a specific queue item.
+ * Uses the real RS flow: set-composition-name → verify → play
  */
 async function playQueueItem(queueItemId) {
   const state = getState();
@@ -103,17 +104,17 @@ async function playQueueItem(queueItemId) {
   logger.info('playback', `[PLAY-ITEM] ── queue item id=${item.id}, song_id=${item.song_id}, title="${item.title}", rs_name="${item.rs_name}"`);
 
   queue.setCurrent(queueItemId);
-  logger.info('playback', `[PLAY-ITEM] ── setCurrent done, now calling rocketshow.transport.play("${item.rs_name}")`);
+  logger.info('playback', `[PLAY-ITEM] ── setCurrent done, now calling rocketshow.playComposition("${item.rs_name}")`);
 
-  const result = await rocketshow.transport.play(item.rs_name);
-  logger.info('playback', `[PLAY-ITEM] ── RS play response: ${JSON.stringify(result)}`);
+  await rocketshow.playComposition(item.rs_name);
 
   songEndHandled = false;
-  logger.info('playback', `[PLAY-ITEM] ── done. Will verify on next poll that RS currentCompositionName matches "${item.rs_name}"`);
+  logger.info('playback', `[PLAY-ITEM] ── done.`);
 }
 
 /**
  * Play the first item in queue (if not already playing).
+ * Uses the real RS flow: set-composition-name → verify → play
  */
 async function playFirst() {
   const q = getState().queue;
@@ -123,20 +124,20 @@ async function playFirst() {
   logger.info('playback', `[PLAY-FIRST] ── queue[0] id=${first.id}, song_id=${first.song_id}, title="${first.title}", rs_name="${first.rs_name}"`);
 
   queue.setCurrent(first.id);
-  const result = await rocketshow.transport.play(first.rs_name);
-  logger.info('playback', `[PLAY-FIRST] ── RS play response: ${JSON.stringify(result)}`);
+  await rocketshow.playComposition(first.rs_name);
   songEndHandled = false;
+  logger.info('playback', `[PLAY-FIRST] ── done.`);
 }
 
 /**
  * Advance to next song in queue.
+ * Uses the real RS flow: set-composition-name → verify → play
  */
 async function advanceToNext() {
   const nextItem = queue.advance();
   if (nextItem) {
     logger.info('playback', `[ADVANCE] ── next item id=${nextItem.id}, song_id=${nextItem.song_id}, title="${nextItem.title}", rs_name="${nextItem.rs_name}"`);
-    const result = await rocketshow.transport.play(nextItem.rs_name);
-    logger.info('playback', `[ADVANCE] ── RS play response: ${JSON.stringify(result)}`);
+    await rocketshow.playComposition(nextItem.rs_name);
     songEndHandled = false;
     logger.info('playback', `[ADVANCE] ── Advanced to: ${nextItem.title}`);
   } else {

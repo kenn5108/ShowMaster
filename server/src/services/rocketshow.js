@@ -146,16 +146,55 @@ async function fetchCompositions() {
 // ══════════════════════════════════════════════════════════════
 // Transport commands
 //
-// IMPORTANT: RocketShow API uses QUERY PARAMETERS, not JSON body.
-// e.g. POST /api/transport/play?compositionName=xxx
+// Real RocketShow flow (observed via network inspection):
+//   1. POST /api/transport/set-composition-name?name=<encoded>
+//   2. POST /api/transport/play
+// All parameters are QUERY PARAMS, not JSON body.
 // ══════════════════════════════════════════════════════════════
-async function play(compositionName) {
-  if (compositionName) {
-    const encoded = encodeURIComponent(compositionName);
-    logger.info('rocketshow', `[TRANSPORT] play composition: "${compositionName}" → POST /api/transport/play?compositionName=${encoded}`);
-    return rsRequest('POST', `/transport/play?compositionName=${encoded}`);
+
+/**
+ * Set the active composition in RocketShow by name.
+ * POST /api/transport/set-composition-name?name=<encoded>
+ */
+async function setCompositionName(name) {
+  const encoded = encodeURIComponent(name);
+  logger.info('rocketshow', `[TRANSPORT] set-composition-name: "${name}" → POST /api/transport/set-composition-name?name=${encoded}`);
+  const result = await rsRequest('POST', `/transport/set-composition-name?name=${encoded}`);
+  logger.info('rocketshow', `[TRANSPORT] set-composition-name response: ${JSON.stringify(result)}`);
+  return result;
+}
+
+/**
+ * Play a specific composition: set-composition-name + verify + play.
+ * Reproduces the exact RocketShow native flow.
+ */
+async function playComposition(compositionName) {
+  logger.info('rocketshow', `[TRANSPORT] ═══ playComposition("${compositionName}") ═══`);
+
+  // Step 1: set-composition-name
+  await setCompositionName(compositionName);
+
+  // Step 2: verify via /system/state that RS loaded the right composition
+  const state = await rsRequest('GET', '/system/state');
+  const loadedComp = state?.currentCompositionName || '(null)';
+  logger.info('rocketshow', `[TRANSPORT] verify after set: currentCompositionName="${loadedComp}" (expected="${compositionName}")`);
+  if (loadedComp !== compositionName) {
+    logger.warn('rocketshow', `[TRANSPORT] ⚠ composition mismatch! RS has "${loadedComp}" but we asked for "${compositionName}"`);
   }
-  logger.info('rocketshow', '[TRANSPORT] play/resume (no composition specified)');
+
+  // Step 3: play
+  logger.info('rocketshow', '[TRANSPORT] play → POST /api/transport/play');
+  const result = await rsRequest('POST', '/transport/play');
+  logger.info('rocketshow', `[TRANSPORT] play response: ${JSON.stringify(result)}`);
+  logger.info('rocketshow', `[TRANSPORT] ═══ playComposition done ═══`);
+  return result;
+}
+
+/**
+ * Simple play (resume current, no composition change).
+ */
+async function play() {
+  logger.info('rocketshow', '[TRANSPORT] play/resume (no composition change)');
   return rsRequest('POST', '/transport/play');
 }
 
@@ -165,7 +204,7 @@ async function pause() {
 }
 
 async function resume() {
-  logger.info('rocketshow', '[TRANSPORT] resume (POST /transport/play without compositionName)');
+  logger.info('rocketshow', '[TRANSPORT] resume → POST /api/transport/play');
   return rsRequest('POST', '/transport/play');
 }
 
@@ -234,5 +273,6 @@ module.exports = {
   fetchCompositions,
   isConnected,
   onAfterPoll,
+  playComposition,
   transport: { play, pause, resume, stop, seek, next },
 };
