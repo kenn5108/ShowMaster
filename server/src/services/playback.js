@@ -87,8 +87,9 @@ function onSongEnd() {
   if (mode === 'auto') {
     advanceToNext();
   } else {
-    updateNested('playback', { currentSong: null });
-    logger.info('playback', 'Manual mode — waiting for user action.');
+    // Manual mode: advance queue (remove finished song, promote next) and load next without playing
+    logger.info('playback', 'Manual mode — song ended, advancing queue without auto-play.');
+    prepareNext();
   }
 }
 
