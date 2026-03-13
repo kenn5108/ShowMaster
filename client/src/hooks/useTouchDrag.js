@@ -7,7 +7,7 @@ import { useRef, useCallback, useEffect } from 'react';
  * This hook provides a full touch-based alternative.
  *
  * Usage:
- *   const touchDrag = useTouchDrag((fromIdx, toIdx) => { /* reorder */ });
+ *   const touchDrag = useTouchDrag((fromIdx, toIdx) => { ... });
  *
  *   // On each draggable row/container:
  *   <div data-drag-idx={idx} ...>
