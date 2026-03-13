@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 
-export default function Sidebar({ activeView, onNavigate, isOpen }) {
+export default function Sidebar({ activeView, activePlaylistId, onNavigate, isOpen }) {
   const { state } = useSocket();
   const [playlists, setPlaylists] = useState([]);
   const [creating, setCreating] = useState(false);
@@ -36,10 +36,10 @@ export default function Sidebar({ activeView, onNavigate, isOpen }) {
           🎵 Bibliothèque
         </div>
         <div
-          className={`sidebar-item ${activeView === 'queue' ? 'active' : ''}`}
+          className={`sidebar-item sidebar-item-secondary ${activeView === 'queue' ? 'active' : ''}`}
           onClick={() => onNavigate('queue')}
         >
-          📋 File d'attente ({state.queue?.length || 0})
+          📋 File (vue complète)
         </div>
         <div
           className={`sidebar-item ${activeView === 'history' ? 'active' : ''}`}
@@ -81,7 +81,7 @@ export default function Sidebar({ activeView, onNavigate, isOpen }) {
         {playlists.map(pl => (
           <div
             key={pl.id}
-            className={`sidebar-item ${activeView === 'playlist' ? 'active' : ''}`}
+            className={`sidebar-item ${activeView === 'playlist' && activePlaylistId === pl.id ? 'active' : ''}`}
             onClick={() => onNavigate('playlist', { playlistId: pl.id })}
           >
             🎶 {pl.name}
