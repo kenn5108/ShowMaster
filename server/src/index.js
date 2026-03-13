@@ -61,9 +61,22 @@ app.get('/api/state', (req, res) => {
 });
 
 // Serve React client (production)
+// Assets (JS/CSS) have content hashes in filenames → cache forever
+// index.html must NEVER be cached → browser always gets latest version
 const clientDist = config.clientDist;
-app.use(express.static(clientDist));
+app.use(express.static(clientDist, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  },
+}));
 app.get('*', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(clientDist, 'index.html'));
 });
 
