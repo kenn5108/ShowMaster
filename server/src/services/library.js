@@ -29,6 +29,9 @@ function syncFromRocketShow(compositions) {
     VALUES (?, ?, ?, ?, ?, ?, ?, 1)
     ON CONFLICT(rs_name) DO UPDATE SET
       duration_ms = excluded.duration_ms,
+      tags = excluded.tags,
+      key_signature = excluded.key_signature,
+      bpm = excluded.bpm,
       rs_available = 1,
       updated_at = datetime('now')
   `);
@@ -65,21 +68,33 @@ function syncFromRocketShow(compositions) {
 
 /**
  * Parse RocketShow notes field for tags, key, BPM.
- * Expected format in notes: "tags:rock,pop;key:Am;bpm:120"
+ * RS uses newline-separated key:value pairs in the notes field:
+ *   tags:rock,pop,2000
+ *   key:Bb
+ *   BPM:120
+ * Also supports semicolons as separator for backwards compatibility.
  */
 function parseNotes(notes) {
   const result = { tags: [], key_signature: '', bpm: null };
   if (!notes) return result;
 
-  const parts = notes.split(';');
-  for (const part of parts) {
-    const [k, v] = part.split(':').map(s => s.trim());
-    if (!k || !v) continue;
-    if (k.toLowerCase() === 'tags') {
+  // Split on newlines and/or semicolons
+  const lines = notes.split(/[\n;]+/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    // Split on first colon only (value may contain colons)
+    const colonIdx = trimmed.indexOf(':');
+    if (colonIdx < 1) continue;
+    const k = trimmed.substring(0, colonIdx).trim().toLowerCase();
+    const v = trimmed.substring(colonIdx + 1).trim();
+    if (!v) continue;
+
+    if (k === 'tags') {
       result.tags = v.split(',').map(t => t.trim()).filter(Boolean);
-    } else if (k.toLowerCase() === 'key') {
+    } else if (k === 'key') {
       result.key_signature = v;
-    } else if (k.toLowerCase() === 'bpm') {
+    } else if (k === 'bpm') {
       result.bpm = parseInt(v, 10) || null;
     }
   }
