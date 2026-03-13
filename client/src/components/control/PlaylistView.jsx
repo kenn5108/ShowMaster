@@ -55,13 +55,20 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   };
 
   const handleShortPress = (item) => {
-    setPopup({
-      title: item.title,
-      actions: [
-        { label: '⬆ Ajouter en haut de file', onClick: () => api.post('/queue/add', { songId: item.song_id, position: 'top' }) },
-        { label: '⬇ Ajouter en bas de file', onClick: () => api.post('/queue/add', { songId: item.song_id, position: 'bottom' }) },
-      ],
-    });
+    const queue = state.queue || [];
+    if (queue.length === 0) {
+      // File vide → ajout direct
+      api.post('/queue/add', { songId: item.song_id, position: 'bottom' }).catch(() => {});
+    } else {
+      // File non vide → popup choix haut/bas
+      setPopup({
+        title: item.title,
+        actions: [
+          { label: '⬆ Ajouter en haut de file', onClick: () => api.post('/queue/add', { songId: item.song_id, position: 'top' }) },
+          { label: '⬇ Ajouter en bas de file', onClick: () => api.post('/queue/add', { songId: item.song_id, position: 'bottom' }) },
+        ],
+      });
+    }
   };
 
   const handleLongPress = (item, e) => {

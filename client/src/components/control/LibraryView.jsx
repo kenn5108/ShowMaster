@@ -41,14 +41,21 @@ export default function LibraryView({ onNavigate }) {
   };
 
   const handleShortPress = (song) => {
-    setPopup({
-      title: `${song.title}`,
-      song,
-      actions: [
-        { label: '⬆ Ajouter en haut de file', onClick: () => addToQueue(song.id, 'top') },
-        { label: '⬇ Ajouter en bas de file', onClick: () => addToQueue(song.id, 'bottom') },
-      ],
-    });
+    const queue = state.queue || [];
+    if (queue.length === 0) {
+      // File vide → ajout direct (en bas, sera position 0)
+      addToQueue(song.id, 'bottom');
+    } else {
+      // File non vide → popup choix haut/bas
+      setPopup({
+        title: `${song.title}`,
+        song,
+        actions: [
+          { label: '⬆ Ajouter en haut de file', onClick: () => addToQueue(song.id, 'top') },
+          { label: '⬇ Ajouter en bas de file', onClick: () => addToQueue(song.id, 'bottom') },
+        ],
+      });
+    }
   };
 
   const handleLongPress = (song, e) => {

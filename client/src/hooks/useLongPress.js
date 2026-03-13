@@ -1,14 +1,22 @@
 import { useCallback, useRef } from 'react';
 
 /**
- * Hook for detecting long press (touch) vs short tap.
- * Returns event handlers for onTouchStart/End and onContextMenu.
+ * Hook for detecting short press (tap/click) vs long press (touch hold / right-click).
+ *
+ * Returns event handlers for BOTH desktop (onClick, onContextMenu)
+ * and mobile (onTouchStart, onTouchEnd, onTouchMove, onContextMenu).
+ *
+ * Prevents double-fire on mobile (where touch + click both fire).
  */
 export function useLongPress(onShortPress, onLongPress, delay = 500) {
   const timerRef = useRef(null);
   const isLongPress = useRef(false);
+  const touchUsed = useRef(false);
 
-  const start = useCallback((e) => {
+  // ── Touch events (mobile) ──
+
+  const onTouchStart = useCallback((e) => {
+    touchUsed.current = true;
     isLongPress.current = false;
     timerRef.current = setTimeout(() => {
       isLongPress.current = true;
@@ -16,7 +24,7 @@ export function useLongPress(onShortPress, onLongPress, delay = 500) {
     }, delay);
   }, [onLongPress, delay]);
 
-  const end = useCallback((e) => {
+  const onTouchEnd = useCallback((e) => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
@@ -24,24 +32,40 @@ export function useLongPress(onShortPress, onLongPress, delay = 500) {
     if (!isLongPress.current) {
       onShortPress?.(e);
     }
+    // Reset touchUsed after a small delay so the subsequent click is ignored
+    setTimeout(() => { touchUsed.current = false; }, 300);
   }, [onShortPress]);
 
-  const cancel = useCallback(() => {
+  const onTouchMove = useCallback(() => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
   }, []);
 
-  const contextMenu = useCallback((e) => {
+  // ── Mouse events (desktop) ──
+
+  const onClick = useCallback((e) => {
+    // If touch was used, skip (prevents double-fire on mobile)
+    if (touchUsed.current) return;
+    onShortPress?.(e);
+  }, [onShortPress]);
+
+  const onContextMenu = useCallback((e) => {
     e.preventDefault();
+    // Clear any pending long-press timer (touch)
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
     onLongPress?.(e);
   }, [onLongPress]);
 
   return {
-    onTouchStart: start,
-    onTouchEnd: end,
-    onTouchMove: cancel,
-    onContextMenu: contextMenu,
+    onClick,
+    onTouchStart,
+    onTouchEnd,
+    onTouchMove,
+    onContextMenu,
   };
 }
