@@ -79,11 +79,11 @@ export default function LibraryView({ onNavigate }) {
       x, y,
       items: [
         ...playlists.map(pl => ({
-          label: `Ajouter \u00e0 "${pl.name}"`,
+          label: `Ajouter à "${pl.name}"`,
           onClick: () => api.post(`/playlists/${pl.id}/items`, { songId: song.id }).catch(() => {}),
         })),
         { separator: true },
-        { label: '\u00c9diter les paroles', onClick: () => onNavigate('lyrics', { songId: song.id }) },
+        { label: 'Éditer les paroles', onClick: () => onNavigate('lyrics', { songId: song.id }) },
         { label: 'Ouvrir la synchro', onClick: () => onNavigate('sync', { songId: song.id }) },
       ],
     });
@@ -96,7 +96,7 @@ export default function LibraryView({ onNavigate }) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <h2 style={{ fontSize: 18, flex: 1 }}>Biblioth\u00e8que</h2>
+        <h2 style={{ fontSize: 18, flex: 1 }}>Bibliothèque</h2>
         <button className="btn btn-sm btn-secondary" onClick={() => api.post('/library/sync').then(loadSongs)}>
           Sync RocketShow
         </button>
@@ -127,7 +127,7 @@ export default function LibraryView({ onNavigate }) {
             <th onClick={() => toggleSort('artist')}>
               Artiste {sortBy === 'artist' && (sortDir === 'asc' ? '\u2191' : '\u2193')}
             </th>
-            <th style={{ width: 70, textAlign: 'right' }}>Dur\u00e9e</th>
+            <th style={{ width: 70, textAlign: 'right' }}>Durée</th>
           </tr>
         </thead>
         <tbody>
