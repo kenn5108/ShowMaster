@@ -20,10 +20,15 @@ export default function MiniPrompter() {
   const lastSongId = useRef(null);
 
   const currentSong = playback.currentSong;
-  const currentQueueItem = queue.find(q => q.is_current === 1);
-  const currentIdx = queue.findIndex(q => q.is_current === 1);
+  // Priority: is_current=1 (playing/paused) → queue[0] (prepared state) → null
+  const currentQueueItem = queue.find(q => q.is_current === 1) || queue[0] || null;
+  const currentIdx = currentQueueItem ? queue.indexOf(currentQueueItem) : -1;
   const nextSong = currentIdx >= 0 && currentIdx + 1 < queue.length ? queue[currentIdx + 1] : null;
-  const remainingMs = Math.max(0, (rs.durationMs || 0) - (rs.positionMs || 0));
+  const isPlaying = rs.playerState === 'PLAYING' || rs.playerState === 'PAUSED';
+  // Use RS data when playing, fallback to queue item duration for prepared state
+  const durationMs = isPlaying ? (rs.durationMs || 0) : (currentQueueItem?.duration_ms || rs.durationMs || 0);
+  const positionMs = isPlaying ? (rs.positionMs || 0) : 0;
+  const remainingMs = Math.max(0, durationMs - positionMs);
 
   // Load lyrics when song changes
   useEffect(() => {
@@ -91,7 +96,7 @@ export default function MiniPrompter() {
           </div>
 
           <div className="mini-prompter-time">
-            <span>{formatTimeMMSS(rs.positionMs || 0)}</span>
+            <span>{formatTimeMMSS(positionMs)}</span>
             <span>-{formatTimeMMSS(remainingMs)}</span>
           </div>
 

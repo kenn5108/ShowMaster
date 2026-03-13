@@ -19,10 +19,12 @@ export default function PrompterView() {
   const lastSongId = useRef(null);
 
   // Track current and next song from queue
+  // Priority: is_current=1 (playing/paused) → queue[0] (prepared state) → null
   useEffect(() => {
-    const current = queue.find(q => q.is_current === 1);
-    const currentIdx = queue.findIndex(q => q.is_current === 1);
-    setCurrentSong(current || null);
+    const playing = queue.find(q => q.is_current === 1);
+    const current = playing || queue[0] || null;
+    const currentIdx = current ? queue.indexOf(current) : -1;
+    setCurrentSong(current);
     setNextSong(currentIdx >= 0 && currentIdx + 1 < queue.length ? queue[currentIdx + 1] : null);
   }, [queue]);
 
@@ -66,8 +68,13 @@ export default function PrompterView() {
     }
   }, [activeLine]);
 
-  const remainingMs = Math.max(0, (rs.durationMs || 0) - (rs.positionMs || 0));
-  const queuePosition = queue.findIndex(q => q.is_current === 1) + 1;
+  const isPlaying = rs.playerState === 'PLAYING' || rs.playerState === 'PAUSED';
+  // Use RS duration when playing, fallback to queue item duration for prepared state
+  const durationMs = isPlaying ? (rs.durationMs || 0) : (currentSong?.duration_ms || rs.durationMs || 0);
+  const positionMs = isPlaying ? (rs.positionMs || 0) : 0;
+  const remainingMs = Math.max(0, durationMs - positionMs);
+  const currentIdx = currentSong ? queue.indexOf(currentSong) : -1;
+  const queuePosition = currentIdx >= 0 ? currentIdx + 1 : 0;
 
   return (
     <div className="prompter-layout">
@@ -86,7 +93,7 @@ export default function PrompterView() {
             <>
               <span>Position : {queuePosition}/{queue.length}</span>
               <span>Restant : {formatTimeMMSS(remainingMs)}</span>
-              <span>{formatTimeMMSS(rs.positionMs)} / {formatTimeMMSS(rs.durationMs)}</span>
+              <span>{formatTimeMMSS(positionMs)} / {formatTimeMMSS(durationMs)}</span>
             </>
           )}
         </div>
