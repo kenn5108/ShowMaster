@@ -1,7 +1,8 @@
-import React, { useRef } from 'react';
+import React, { useRef, useCallback } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 import { formatTime } from '../../utils/format';
+import { useTouchDrag } from '../../hooks/useTouchDrag';
 
 /**
  * QueueView — full-page queue view.
@@ -9,6 +10,8 @@ import { formatTime } from '../../utils/format';
  * Drag/visual rules based on ACTUAL playback state:
  *  - is_current === 1 AND playerState PLAYING/PAUSED → pink, play icon, locked
  *  - Otherwise → normal display, draggable, removable
+ *
+ * Touch drag: handled via useTouchDrag hook (HTML5 drag doesn't work on mobile)
  */
 export default function QueueView() {
   const { state } = useSocket();
@@ -22,6 +25,15 @@ export default function QueueView() {
   const isLocked = (item) =>
     item.is_current === 1 && (playerState === 'PLAYING' || playerState === 'PAUSED');
 
+  // ── Touch drag (mobile) ──
+  const touchDrag = useTouchDrag(useCallback((fromIdx, toIdx) => {
+    const item = queue[fromIdx];
+    if (!item || item.is_current === 1) return;
+    if (liveLock) return;
+    api.post('/queue/move', { queueItemId: item.id, newPosition: toIdx }).catch(() => {});
+  }, [queue, liveLock]));
+
+  // ── HTML5 drag (desktop) ──
   const handleDragStart = (idx) => {
     const item = queue[idx];
     if (!item || isLocked(item)) return;
@@ -68,7 +80,7 @@ export default function QueueView() {
 
       {queue.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
-          File vide — ajoutez des morceaux depuis la bibliothèque ou une playlist
+          File vide {'\u2014'} ajoutez des morceaux depuis la biblioth{'\u00E8'}que ou une playlist
         </div>
       ) : (
         <table className="song-table">
@@ -77,7 +89,7 @@ export default function QueueView() {
               <th style={{ width: 40 }}>#</th>
               <th>Titre</th>
               <th>Artiste</th>
-              <th style={{ width: 70, textAlign: 'right' }}>Durée</th>
+              <th style={{ width: 70, textAlign: 'right' }}>Dur{'\u00E9'}e</th>
               <th style={{ width: 80 }}></th>
             </tr>
           </thead>
@@ -90,6 +102,7 @@ export default function QueueView() {
                 <tr
                   key={item.id}
                   className={locked ? 'current-song' : ''}
+                  data-drag-idx={idx}
                   draggable={!locked && !liveLock}
                   onDragStart={() => handleDragStart(idx)}
                   onDragOver={(e) => handleDragOver(e, idx)}
@@ -97,9 +110,12 @@ export default function QueueView() {
                 >
                   <td>
                     {!locked && !liveLock && (
-                      <span className="drag-handle">⠿</span>
+                      <span
+                        className="drag-handle"
+                        onTouchStart={(e) => touchDrag.handleTouchStart(idx, e)}
+                      >{'\u2817'}</span>
                     )}
-                    {locked && <span style={{ color: 'var(--current-song)', fontWeight: 700 }}>▶</span>}
+                    {locked && <span style={{ color: 'var(--current-song)', fontWeight: 700 }}>{'\u25B6'}</span>}
                   </td>
                   <td>
                     <div className="song-title">{item.title}</div>
@@ -109,7 +125,7 @@ export default function QueueView() {
                       {item.bpm && <span className="badge badge-bpm">{item.bpm} BPM</span>}
                     </div>
                   </td>
-                  <td><span className="song-artist">{item.artist || '—'}</span></td>
+                  <td><span className="song-artist">{item.artist || '\u2014'}</span></td>
                   <td style={{ textAlign: 'right' }}>
                     <span className="song-duration">{formatTime(item.duration_ms)}</span>
                   </td>
@@ -121,7 +137,7 @@ export default function QueueView() {
                         title="Retirer"
                         style={{ color: 'var(--error)' }}
                       >
-                        ✕
+                        {'\u2715'}
                       </button>
                     )}
                   </td>

@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '../../utils/api';
 import { formatTime } from '../../utils/format';
 import { useSocket } from '../../contexts/SocketContext';
 import { useLongPress } from '../../hooks/useLongPress';
+import { useTouchDrag } from '../../hooks/useTouchDrag';
 import Popup from '../shared/Popup';
 import ContextMenu from '../shared/ContextMenu';
 import TagFilter, { filterByTags } from '../shared/TagFilter';
@@ -57,6 +58,16 @@ export default function PlaylistView({ playlistId, onNavigate }) {
 
   const canDrag = sortBy === 'position' && !liveLock;
 
+  // ── Touch drag (mobile) ──
+  const touchDrag = useTouchDrag(useCallback((fromIdx, toIdx) => {
+    const item = items[fromIdx];
+    if (!item) return;
+    api.post(`/playlists/${playlistId}/items/${item.id}/move`, {
+      newPosition: toIdx,
+    }).then(loadItems).catch(() => {});
+  }, [items, playlistId]));
+
+  // ── HTML5 drag (desktop) ──
   const handleDragStart = (idx) => { dragItem.current = idx; };
   const handleDragOver = (e, idx) => { e.preventDefault(); dragOverItem.current = idx; };
   const handleDrop = () => {
@@ -113,6 +124,8 @@ export default function PlaylistView({ playlistId, onNavigate }) {
 
   if (!playlist) return <div style={{ padding: 40, color: 'var(--text-muted)' }}>Chargement...</div>;
 
+  const effectiveCanDrag = canDrag && !search && selectedTags.size === 0;
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
@@ -155,7 +168,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
             <th onClick={() => toggleSort('artist')}>
               Artiste {sortBy === 'artist' && (sortDir === 'asc' ? '\u2191' : '\u2193')}
             </th>
-            <th style={{ width: 70, textAlign: 'right' }}>Dur\u00e9e</th>
+            <th style={{ width: 70, textAlign: 'right' }}>Dur{'\u00E9'}e</th>
           </tr>
         </thead>
         <tbody>
@@ -164,10 +177,11 @@ export default function PlaylistView({ playlistId, onNavigate }) {
               key={item.id}
               item={item}
               idx={idx}
-              canDrag={canDrag && !search && selectedTags.size === 0}
+              canDrag={effectiveCanDrag}
               onDragStart={() => handleDragStart(idx)}
               onDragOver={(e) => handleDragOver(e, idx)}
               onDrop={handleDrop}
+              onTouchDragStart={(e) => touchDrag.handleTouchStart(idx, e)}
               onShortPress={() => handleShortPress(item)}
               onLongPress={(e) => handleLongPress(item, e)}
             />
@@ -187,12 +201,13 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   );
 }
 
-function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, onShortPress, onLongPress }) {
+function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, onTouchDragStart, onShortPress, onLongPress }) {
   const tags = tryParseJson(item.tags, []);
   const pressHandlers = useLongPress(onShortPress, onLongPress);
 
   return (
     <tr
+      data-drag-idx={idx}
       draggable={canDrag}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
@@ -201,7 +216,12 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
       style={{ cursor: 'pointer' }}
     >
       <td>
-        {canDrag && <span className="drag-handle">\u2817</span>}
+        {canDrag && (
+          <span
+            className="drag-handle"
+            onTouchStart={onTouchDragStart}
+          >{'\u2817'}</span>
+        )}
         {!canDrag && <span style={{ color: 'var(--text-muted)' }}>{idx + 1}</span>}
       </td>
       <td>

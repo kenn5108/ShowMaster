@@ -1,7 +1,8 @@
-import React, { useRef } from 'react';
+import React, { useRef, useCallback } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 import { formatTime } from '../../utils/format';
+import { useTouchDrag } from '../../hooks/useTouchDrag';
 
 /**
  * QueuePanel — compact queue always visible in the right panel.
@@ -9,6 +10,8 @@ import { formatTime } from '../../utils/format';
  * Drag/visual rules based on ACTUAL playback state:
  *  - is_current === 1 AND playerState PLAYING/PAUSED → pink, play icon, locked
  *  - Otherwise → normal display, draggable, removable
+ *
+ * Touch drag: handled via useTouchDrag hook (HTML5 drag doesn't work on mobile)
  */
 export default function QueuePanel() {
   const { state } = useSocket();
@@ -22,6 +25,15 @@ export default function QueuePanel() {
   const isLocked = (item) =>
     item.is_current === 1 && (playerState === 'PLAYING' || playerState === 'PAUSED');
 
+  // ── Touch drag (mobile) ──
+  const touchDrag = useTouchDrag(useCallback((fromIdx, toIdx) => {
+    const item = queue[fromIdx];
+    if (!item || item.is_current === 1) return;
+    if (liveLock) return;
+    api.post('/queue/move', { queueItemId: item.id, newPosition: toIdx }).catch(() => {});
+  }, [queue, liveLock]));
+
+  // ── HTML5 drag (desktop) ──
   const handleDragStart = (idx) => {
     const item = queue[idx];
     if (!item || isLocked(item)) return;
@@ -64,7 +76,7 @@ export default function QueuePanel() {
       <div className="queue-panel-list">
         {queue.length === 0 ? (
           <div className="queue-panel-empty">
-            Ajoutez des morceaux depuis la bibliothèque
+            Ajoutez des morceaux depuis la biblioth&egrave;que
           </div>
         ) : (
           queue.map((item, idx) => {
@@ -73,6 +85,7 @@ export default function QueuePanel() {
               <div
                 key={item.id}
                 className={`queue-panel-item ${locked ? 'current' : ''}`}
+                data-drag-idx={idx}
                 draggable={!locked && !liveLock}
                 onDragStart={() => handleDragStart(idx)}
                 onDragOver={(e) => handleDragOver(e, idx)}
@@ -80,9 +93,14 @@ export default function QueuePanel() {
               >
                 <div className="queue-panel-item-index">
                   {locked ? (
-                    <span className="queue-panel-playing-icon">▶</span>
+                    <span className="queue-panel-playing-icon">{'\u25B6'}</span>
                   ) : (
-                    !liveLock && <span className="drag-handle-sm">⠿</span>
+                    !liveLock && (
+                      <span
+                        className="drag-handle-sm"
+                        onTouchStart={(e) => touchDrag.handleTouchStart(idx, e)}
+                      >{'\u2817'}</span>
+                    )
                   )}
                   {!locked && liveLock && <span className="queue-panel-num">{idx + 1}</span>}
                 </div>
@@ -92,7 +110,7 @@ export default function QueuePanel() {
                 </div>
                 <div className="queue-panel-item-duration">{formatTime(item.duration_ms)}</div>
                 {!locked && !liveLock && (
-                  <button className="queue-panel-item-remove" onClick={() => handleRemove(item)}>✕</button>
+                  <button className="queue-panel-item-remove" onClick={() => handleRemove(item)}>{'\u2715'}</button>
                 )}
               </div>
             );
