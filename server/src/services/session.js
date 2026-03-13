@@ -56,7 +56,7 @@ function close() {
   }
 
   getDb().prepare(
-    'UPDATE sessions SET is_active = 0, closed_at = datetime("now") WHERE id = ?'
+    `UPDATE sessions SET is_active = 0, closed_at = datetime('now') WHERE id = ?`
   ).run(current.id);
 
   updateState({ session: null });

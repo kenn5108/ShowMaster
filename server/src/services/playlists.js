@@ -16,7 +16,7 @@ function create(name) {
 }
 
 function rename(id, name) {
-  getDb().prepare('UPDATE playlists SET name = ?, updated_at = datetime("now") WHERE id = ?').run(name.trim(), id);
+  getDb().prepare(`UPDATE playlists SET name = ?, updated_at = datetime('now') WHERE id = ?`).run(name.trim(), id);
 }
 
 function remove(id) {
@@ -50,7 +50,7 @@ function addItem(playlistId, songId) {
     'INSERT INTO playlist_items (playlist_id, song_id, position) VALUES (?, ?, ?)'
   ).run(playlistId, songId, (maxRow?.p ?? -1) + 1);
 
-  db.prepare('UPDATE playlists SET updated_at = datetime("now") WHERE id = ?').run(playlistId);
+  db.prepare(`UPDATE playlists SET updated_at = datetime('now') WHERE id = ?`).run(playlistId);
   return result.lastInsertRowid;
 }
 
@@ -83,7 +83,7 @@ function moveItem(itemId, newPosition) {
   }
 
   db.prepare('UPDATE playlist_items SET position = ? WHERE id = ?').run(newPosition, itemId);
-  db.prepare('UPDATE playlists SET updated_at = datetime("now") WHERE id = ?').run(item.playlist_id);
+  db.prepare(`UPDATE playlists SET updated_at = datetime('now') WHERE id = ?`).run(item.playlist_id);
 }
 
 function reindexPlaylist(playlistId) {

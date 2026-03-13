@@ -18,7 +18,7 @@ function recordStart(sessionId, songId) {
 
 function recordEnd(sessionId, songId) {
   getDb().prepare(
-    'UPDATE history SET finished_at = datetime("now") WHERE session_id = ? AND song_id = ? AND finished_at IS NULL'
+    `UPDATE history SET finished_at = datetime('now') WHERE session_id = ? AND song_id = ? AND finished_at IS NULL`
   ).run(sessionId, songId);
 }
 

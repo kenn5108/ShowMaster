@@ -152,17 +152,9 @@ async function startup() {
   // 5. Init playback
   playback.init();
 
-  // 6. Start RocketShow poller
+  // 6. Start RocketShow poller — register playback callback BEFORE starting
+  rocketshow.onAfterPoll(() => playback.onPollUpdate());
   rocketshow.start();
-
-  // Hook playback into poll cycle
-  const originalPoll = rocketshow.poll;
-  const pollWithPlayback = async () => {
-    await originalPoll();
-    playback.onPollUpdate();
-  };
-  // Replace the poll in the interval
-  rocketshow.poll = pollWithPlayback;
 
   // 7. Start HTTP server
   httpServer.listen(config.port, config.host, () => {

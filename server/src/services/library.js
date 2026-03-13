@@ -117,7 +117,7 @@ function update(id, fields) {
 
   if (sets.length === 0) return;
 
-  sets.push('updated_at = datetime("now")');
+  sets.push("updated_at = datetime('now')");
   values.push(id);
 
   getDb().prepare(`UPDATE songs SET ${sets.join(', ')} WHERE id = ?`).run(...values);

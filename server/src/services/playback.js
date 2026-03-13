@@ -8,6 +8,7 @@ const logger = require('../core/logger');
 
 let lastPlayerState = 'STOPPED';
 let lastComposition = null;
+let songEndHandled = false; // guard against repeated onSongEnd calls
 
 /**
  * PlaybackManager — orchestrates playback between Queue and RocketShow.
@@ -31,14 +32,21 @@ function onPollUpdate() {
   const currentState = rs.playerState;
   const currentComp = rs.currentComposition;
 
-  // Detect song end: was PLAYING, now STOPPED
-  if (lastPlayerState === 'PLAYING' && currentState === 'STOPPED') {
+  // Detect song end: was PLAYING, now STOPPED — fire only once
+  if (lastPlayerState === 'PLAYING' && currentState === 'STOPPED' && !songEndHandled) {
+    songEndHandled = true;
     onSongEnd();
+  }
+
+  // Reset the guard when RS starts playing again
+  if (currentState === 'PLAYING') {
+    songEndHandled = false;
   }
 
   // Detect song change
   if (currentComp && currentComp !== lastComposition) {
     onSongStart(currentComp);
+    songEndHandled = false; // new song started, allow end detection again
   }
 
   // Update prompter position
@@ -71,6 +79,7 @@ function onSongEnd() {
     if (session) {
       history.recordEnd(session.id, currentSong.id);
     }
+    logger.info('playback', `Song ended: ${currentSong.title}`);
   }
 
   const mode = getState().playback.mode;
@@ -78,7 +87,7 @@ function onSongEnd() {
     advanceToNext();
   } else {
     updateNested('playback', { currentSong: null });
-    logger.info('playback', 'Song ended. Manual mode — waiting for user action.');
+    logger.info('playback', 'Manual mode — waiting for user action.');
   }
 }
 
@@ -92,6 +101,7 @@ async function playQueueItem(queueItemId) {
 
   queue.setCurrent(queueItemId);
   await rocketshow.transport.play(item.rs_name);
+  songEndHandled = false;
   logger.info('playback', `Playing queue item: ${item.title}`);
 }
 
@@ -105,6 +115,7 @@ async function playFirst() {
   const first = q[0];
   queue.setCurrent(first.id);
   await rocketshow.transport.play(first.rs_name);
+  songEndHandled = false;
 }
 
 /**
@@ -114,6 +125,7 @@ async function advanceToNext() {
   const nextItem = queue.advance();
   if (nextItem) {
     await rocketshow.transport.play(nextItem.rs_name);
+    songEndHandled = false;
     logger.info('playback', `Advanced to: ${nextItem.title}`);
   } else {
     updateNested('playback', { currentSong: null });
@@ -136,11 +148,13 @@ async function pause() {
 
 async function stop() {
   await rocketshow.transport.stop();
+  songEndHandled = true; // manual stop, don't trigger onSongEnd
   updateNested('playback', { currentSong: null });
 }
 
 async function next() {
   await rocketshow.transport.stop();
+  songEndHandled = true; // manual next, we handle advance ourselves
   await advanceToNext();
 }
 
