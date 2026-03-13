@@ -45,6 +45,7 @@ function onPollUpdate() {
 
   // Detect song change
   if (currentComp && currentComp !== lastComposition) {
+    logger.info('playback', `[POLL] ── RS composition changed: "${lastComposition}" → "${currentComp}"`);
     onSongStart(currentComp);
     songEndHandled = false; // new song started, allow end detection again
   }
@@ -99,10 +100,16 @@ async function playQueueItem(queueItemId) {
   const item = state.queue.find(q => q.id === queueItemId);
   if (!item) throw new Error('Queue item not found');
 
+  logger.info('playback', `[PLAY-ITEM] ── queue item id=${item.id}, song_id=${item.song_id}, title="${item.title}", rs_name="${item.rs_name}"`);
+
   queue.setCurrent(queueItemId);
-  await rocketshow.transport.play(item.rs_name);
+  logger.info('playback', `[PLAY-ITEM] ── setCurrent done, now calling rocketshow.transport.play("${item.rs_name}")`);
+
+  const result = await rocketshow.transport.play(item.rs_name);
+  logger.info('playback', `[PLAY-ITEM] ── RS play response: ${JSON.stringify(result)}`);
+
   songEndHandled = false;
-  logger.info('playback', `Playing queue item: ${item.title}`);
+  logger.info('playback', `[PLAY-ITEM] ── done. Will verify on next poll that RS currentCompositionName matches "${item.rs_name}"`);
 }
 
 /**
@@ -113,8 +120,11 @@ async function playFirst() {
   if (q.length === 0) throw new Error('Queue is empty');
 
   const first = q[0];
+  logger.info('playback', `[PLAY-FIRST] ── queue[0] id=${first.id}, song_id=${first.song_id}, title="${first.title}", rs_name="${first.rs_name}"`);
+
   queue.setCurrent(first.id);
-  await rocketshow.transport.play(first.rs_name);
+  const result = await rocketshow.transport.play(first.rs_name);
+  logger.info('playback', `[PLAY-FIRST] ── RS play response: ${JSON.stringify(result)}`);
   songEndHandled = false;
 }
 
@@ -124,12 +134,14 @@ async function playFirst() {
 async function advanceToNext() {
   const nextItem = queue.advance();
   if (nextItem) {
-    await rocketshow.transport.play(nextItem.rs_name);
+    logger.info('playback', `[ADVANCE] ── next item id=${nextItem.id}, song_id=${nextItem.song_id}, title="${nextItem.title}", rs_name="${nextItem.rs_name}"`);
+    const result = await rocketshow.transport.play(nextItem.rs_name);
+    logger.info('playback', `[ADVANCE] ── RS play response: ${JSON.stringify(result)}`);
     songEndHandled = false;
-    logger.info('playback', `Advanced to: ${nextItem.title}`);
+    logger.info('playback', `[ADVANCE] ── Advanced to: ${nextItem.title}`);
   } else {
     updateNested('playback', { currentSong: null });
-    logger.info('playback', 'Queue exhausted. Playback stopped.');
+    logger.info('playback', '[ADVANCE] ── Queue exhausted. Playback stopped.');
   }
 }
 

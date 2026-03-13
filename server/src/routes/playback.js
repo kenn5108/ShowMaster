@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const playback = require('../services/playback');
 const { getState } = require('../core/state');
+const logger = require('../core/logger');
 
 const router = Router();
 
@@ -15,6 +16,7 @@ router.get('/state', (req, res) => {
 // Transport commands — always allowed (even in live lock)
 router.post('/play', async (req, res) => {
   try {
+    logger.info('route:playback', `[POST /play] body=${JSON.stringify(req.body)}`);
     if (req.body.queueItemId) {
       await playback.playQueueItem(req.body.queueItemId);
     } else {
@@ -22,6 +24,7 @@ router.post('/play', async (req, res) => {
     }
     res.json({ ok: true });
   } catch (err) {
+    logger.error('route:playback', `[POST /play] error: ${err.message}`);
     res.status(400).json({ error: err.message });
   }
 });

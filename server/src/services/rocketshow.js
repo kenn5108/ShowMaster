@@ -143,31 +143,43 @@ async function fetchCompositions() {
   }
 }
 
+// ══════════════════════════════════════════════════════════════
 // Transport commands
+//
+// IMPORTANT: RocketShow API uses QUERY PARAMETERS, not JSON body.
+// e.g. POST /api/transport/play?compositionName=xxx
+// ══════════════════════════════════════════════════════════════
 async function play(compositionName) {
   if (compositionName) {
-    return rsRequest('POST', '/transport/play', { compositionName });
+    const encoded = encodeURIComponent(compositionName);
+    logger.info('rocketshow', `[TRANSPORT] play composition: "${compositionName}" → POST /api/transport/play?compositionName=${encoded}`);
+    return rsRequest('POST', `/transport/play?compositionName=${encoded}`);
   }
+  logger.info('rocketshow', '[TRANSPORT] play/resume (no composition specified)');
   return rsRequest('POST', '/transport/play');
 }
 
 async function pause() {
+  logger.info('rocketshow', '[TRANSPORT] pause');
   return rsRequest('POST', '/transport/pause');
 }
 
 async function resume() {
+  logger.info('rocketshow', '[TRANSPORT] resume (POST /transport/play without compositionName)');
   return rsRequest('POST', '/transport/play');
 }
 
 async function stop() {
+  logger.info('rocketshow', '[TRANSPORT] stop');
   return rsRequest('POST', '/transport/stop');
 }
 
 async function seek(positionMs) {
-  return rsRequest('POST', '/transport/seek', { positionMillis: positionMs });
+  return rsRequest('POST', `/transport/seek?positionMillis=${positionMs}`);
 }
 
 async function next() {
+  logger.info('rocketshow', '[TRANSPORT] next-composition');
   return rsRequest('POST', '/transport/next-composition');
 }
 
