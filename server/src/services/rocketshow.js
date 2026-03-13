@@ -191,6 +191,27 @@ async function playComposition(compositionName) {
 }
 
 /**
+ * Load a composition WITHOUT starting playback: set-composition-name + verify only.
+ * Used by manual-mode "Next" to prepare the next song without auto-playing.
+ */
+async function loadComposition(compositionName) {
+  logger.info('rocketshow', `[TRANSPORT] ═══ loadComposition("${compositionName}") (no play) ═══`);
+
+  // Step 1: set-composition-name
+  await setCompositionName(compositionName);
+
+  // Step 2: verify
+  const state = await rsRequest('GET', '/system/state');
+  const loadedComp = state?.currentCompositionName || '(null)';
+  logger.info('rocketshow', `[TRANSPORT] verify after set: currentCompositionName="${loadedComp}" (expected="${compositionName}")`);
+  if (loadedComp !== compositionName) {
+    logger.warn('rocketshow', `[TRANSPORT] ⚠ composition mismatch! RS has "${loadedComp}" but we asked for "${compositionName}"`);
+  }
+
+  logger.info('rocketshow', `[TRANSPORT] ═══ loadComposition done (NOT playing) ═══`);
+}
+
+/**
  * Simple play (resume current, no composition change).
  */
 async function play() {
@@ -274,5 +295,6 @@ module.exports = {
   isConnected,
   onAfterPoll,
   playComposition,
+  loadComposition,
   transport: { play, pause, resume, stop, seek, next },
 };

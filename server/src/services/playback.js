@@ -166,9 +166,40 @@ async function stop() {
 }
 
 async function next() {
+  const mode = getState().playback.mode;
   await rocketshow.transport.stop();
-  songEndHandled = true; // manual next, we handle advance ourselves
-  await advanceToNext();
+  songEndHandled = true; // we handle advance ourselves, don't trigger onSongEnd
+
+  if (mode === 'auto') {
+    // Auto: advance and start playing
+    await advanceToNext();
+  } else {
+    // Manual: advance queue, load composition but do NOT play
+    await prepareNext();
+  }
+}
+
+/**
+ * Advance queue and load next composition WITHOUT playing.
+ * Used by manual-mode "Next" button.
+ */
+async function prepareNext() {
+  const nextItem = queue.advance();
+  if (nextItem) {
+    logger.info('playback', `[PREPARE-NEXT] ── next item id=${nextItem.id}, song_id=${nextItem.song_id}, title="${nextItem.title}", rs_name="${nextItem.rs_name}"`);
+    await rocketshow.loadComposition(nextItem.rs_name);
+
+    // Update playback state to show the loaded song (but RS is not playing)
+    const song = library.getByRsName(nextItem.rs_name);
+    if (song) {
+      updateNested('playback', { currentSong: song });
+    }
+    songEndHandled = true; // RS is stopped, don't trigger onSongEnd
+    logger.info('playback', `[PREPARE-NEXT] ── Loaded (not playing): ${nextItem.title}`);
+  } else {
+    updateNested('playback', { currentSong: null });
+    logger.info('playback', '[PREPARE-NEXT] ── Queue exhausted.');
+  }
 }
 
 async function seek(positionMs) {
