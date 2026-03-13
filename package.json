@@ -1,0 +1,26 @@
+{
+  "name": "showmaster-v2",
+  "version": "2.0.0",
+  "private": true,
+  "description": "ShowMaster V2 — Live show control for RocketShow",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "node --watch server/src/index.js",
+    "dev:client": "cd client && npx vite --host",
+    "build": "cd client && npx vite build",
+    "start": "node server/src/index.js",
+    "migrate": "node server/src/migrations/run.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "socket.io": "^4.8.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,251 @@
+const { getDb } = require('../core/database');
+const { getState, updateState } = require('../core/state');
+const logger = require('../core/logger');
+
+/**
+ * QueueManager — persistent queue, session-scoped.
+ *
+ * Rules:
+ *  - Current song is always at position 0 (top), colored, immovable even when paused.
+ *  - "Add to top" means insert at position 1 (just after current).
+ *  - Reorder is allowed only on non-current items.
+ *  - Queue persists across reboots.
+ */
+
+function getSessionId() {
+  const session = getState().session;
+  if (!session) throw new Error('No active session');
+  return session.id;
+}
+
+/**
+ * Load queue from DB and update state.
+ */
+function load() {
+  const session = getState().session;
+  if (!session) {
+    updateState({ queue: [] });
+    return [];
+  }
+
+  const rows = getDb().prepare(`
+    SELECT q.id, q.song_id, q.position, q.is_current, q.played,
+           s.title, s.artist, s.duration_ms, s.rs_name, s.tags, s.key_signature, s.bpm
+    FROM queue q
+    JOIN songs s ON s.id = q.song_id
+    WHERE q.session_id = ?
+    ORDER BY q.position ASC
+  `).all(session.id);
+
+  const queue = rows.map(r => ({
+    ...r,
+    tags: tryParseJson(r.tags, []),
+  }));
+
+  updateState({ queue });
+  return queue;
+}
+
+/**
+ * Add a song to the queue.
+ * @param {number} songId
+ * @param {'top'|'bottom'} position - 'top' inserts at pos 1, 'bottom' appends
+ */
+function add(songId, position = 'bottom') {
+  const db = getDb();
+  const sessionId = getSessionId();
+
+  const currentQueue = getState().queue;
+
+  if (position === 'top') {
+    // Insert at position 1 (after current song at 0)
+    // Shift all non-current items down
+    db.prepare(`
+      UPDATE queue SET position = position + 1
+      WHERE session_id = ? AND position >= 1
+    `).run(sessionId);
+
+    const insertPos = currentQueue.length === 0 ? 0 : 1;
+    db.prepare(`
+      INSERT INTO queue (session_id, song_id, position) VALUES (?, ?, ?)
+    `).run(sessionId, songId, insertPos);
+  } else {
+    // Add at bottom
+    const maxRow = db.prepare(
+      'SELECT COALESCE(MAX(position), -1) as maxPos FROM queue WHERE session_id = ?'
+    ).get(sessionId);
+    const newPos = (maxRow?.maxPos ?? -1) + 1;
+
+    db.prepare(`
+      INSERT INTO queue (session_id, song_id, position) VALUES (?, ?, ?)
+    `).run(sessionId, songId, newPos);
+  }
+
+  logger.info('queue', `Added song #${songId} at ${position}`);
+  return load();
+}
+
+/**
+ * Remove a song from the queue (cannot remove current song).
+ */
+function remove(queueItemId) {
+  const db = getDb();
+  const sessionId = getSessionId();
+
+  const item = db.prepare('SELECT * FROM queue WHERE id = ? AND session_id = ?').get(queueItemId, sessionId);
+  if (!item) throw new Error('Queue item not found');
+  if (item.is_current) throw new Error('Cannot remove the current song');
+
+  db.prepare('DELETE FROM queue WHERE id = ?').run(queueItemId);
+  reindex(sessionId);
+  logger.info('queue', `Removed queue item #${queueItemId}`);
+  return load();
+}
+
+/**
+ * Move a queue item to a new position (cannot move current song).
+ */
+function move(queueItemId, newPosition) {
+  const db = getDb();
+  const sessionId = getSessionId();
+
+  const item = db.prepare('SELECT * FROM queue WHERE id = ? AND session_id = ?').get(queueItemId, sessionId);
+  if (!item) throw new Error('Queue item not found');
+  if (item.is_current) throw new Error('Cannot move the current song');
+  if (newPosition < 1) throw new Error('Cannot move to position 0 (reserved for current)');
+
+  const oldPos = item.position;
+  if (oldPos === newPosition) return load();
+
+  if (oldPos < newPosition) {
+    db.prepare(`
+      UPDATE queue SET position = position - 1
+      WHERE session_id = ? AND position > ? AND position <= ?
+    `).run(sessionId, oldPos, newPosition);
+  } else {
+    db.prepare(`
+      UPDATE queue SET position = position + 1
+      WHERE session_id = ? AND position >= ? AND position < ?
+    `).run(sessionId, newPosition, oldPos);
+  }
+
+  db.prepare('UPDATE queue SET position = ? WHERE id = ?').run(newPosition, queueItemId);
+  logger.info('queue', `Moved queue item #${queueItemId} to position ${newPosition}`);
+  return load();
+}
+
+/**
+ * Mark a song as current (playing). Called by PlaybackManager.
+ */
+function setCurrent(queueItemId) {
+  const db = getDb();
+  const sessionId = getSessionId();
+
+  db.prepare('UPDATE queue SET is_current = 0 WHERE session_id = ?').run(sessionId);
+  if (queueItemId) {
+    db.prepare('UPDATE queue SET is_current = 1 WHERE id = ? AND session_id = ?').run(queueItemId, sessionId);
+  }
+  return load();
+}
+
+/**
+ * Advance to the next song in queue.
+ * Marks current as played, promotes next to current.
+ * Returns the new current queue item or null if queue is empty.
+ */
+function advance() {
+  const db = getDb();
+  const sessionId = getSessionId();
+
+  // Mark current as played
+  db.prepare(`
+    UPDATE queue SET is_current = 0, played = 1 WHERE session_id = ? AND is_current = 1
+  `).run(sessionId);
+
+  // Remove played items at position 0 and reindex
+  db.prepare(`
+    DELETE FROM queue WHERE session_id = ? AND played = 1
+  `).run(sessionId);
+
+  reindex(sessionId);
+
+  // The new first item becomes current
+  const next = db.prepare(`
+    SELECT * FROM queue WHERE session_id = ? ORDER BY position ASC LIMIT 1
+  `).get(sessionId);
+
+  if (next) {
+    db.prepare('UPDATE queue SET is_current = 1, position = 0 WHERE id = ?').run(next.id);
+  }
+
+  const queue = load();
+  return queue.length > 0 ? queue[0] : null;
+}
+
+/**
+ * Clear the queue (except current if playing).
+ */
+function clear(keepCurrent = true) {
+  const db = getDb();
+  const sessionId = getSessionId();
+
+  if (keepCurrent) {
+    db.prepare('DELETE FROM queue WHERE session_id = ? AND is_current = 0').run(sessionId);
+  } else {
+    db.prepare('DELETE FROM queue WHERE session_id = ?').run(sessionId);
+  }
+
+  reindex(sessionId);
+  logger.info('queue', 'Queue cleared');
+  return load();
+}
+
+/**
+ * Reindex positions to be contiguous starting from 0.
+ */
+function reindex(sessionId) {
+  const db = getDb();
+  const items = db.prepare(
+    'SELECT id FROM queue WHERE session_id = ? ORDER BY position ASC'
+  ).all(sessionId);
+
+  const stmt = db.prepare('UPDATE queue SET position = ? WHERE id = ?');
+  const txn = db.transaction(() => {
+    items.forEach((item, idx) => stmt.run(idx, item.id));
+  });
+  txn();
+}
+
+/**
+ * Load queue from a playlist (append all its songs).
+ */
+function loadFromPlaylist(playlistId) {
+  const db = getDb();
+  const sessionId = getSessionId();
+
+  const items = db.prepare(`
+    SELECT song_id FROM playlist_items WHERE playlist_id = ? ORDER BY position ASC
+  `).all(playlistId);
+
+  const maxRow = db.prepare(
+    'SELECT COALESCE(MAX(position), -1) as maxPos FROM queue WHERE session_id = ?'
+  ).get(sessionId);
+  let pos = (maxRow?.maxPos ?? -1) + 1;
+
+  const stmt = db.prepare('INSERT INTO queue (session_id, song_id, position) VALUES (?, ?, ?)');
+  const txn = db.transaction(() => {
+    for (const item of items) {
+      stmt.run(sessionId, item.song_id, pos++);
+    }
+  });
+  txn();
+
+  logger.info('queue', `Loaded ${items.length} songs from playlist #${playlistId}`);
+  return load();
+}
+
+function tryParseJson(str, fallback) {
+  try { return JSON.parse(str); } catch { return fallback; }
+}
+
+module.exports = { load, add, remove, move, setCurrent, advance, clear, loadFromPlaylist };
