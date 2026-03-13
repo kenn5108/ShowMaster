@@ -6,18 +6,21 @@ import { formatTime } from '../../utils/format';
 /**
  * QueuePanel — compact queue always visible in the right panel.
  *
- * Drag rules:
- *  - is_current === 1 (PLAYING or PAUSED) → locked, no drag, no remove
- *  - is_current === 0 (never started, or STOPPED) → draggable, removable
+ * Drag/visual rules based on ACTUAL playback state:
+ *  - is_current === 1 AND playerState PLAYING/PAUSED → pink, play icon, locked
+ *  - Otherwise → normal display, draggable, removable
  */
 export default function QueuePanel() {
   const { state } = useSocket();
   const queue = state.queue || [];
   const liveLock = state.liveLock;
+  const playerState = state.rocketshow?.playerState || 'STOPPED';
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
 
-  const isLocked = (item) => item.is_current === 1;
+  // Only locked when actually playing or paused — not just "next in line"
+  const isLocked = (item) =>
+    item.is_current === 1 && (playerState === 'PLAYING' || playerState === 'PAUSED');
 
   const handleDragStart = (idx) => {
     const item = queue[idx];

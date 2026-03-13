@@ -187,16 +187,15 @@ async function next() {
  * Used by manual-mode "Next" button.
  */
 async function prepareNext() {
-  const nextItem = queue.advance();
+  // advance(false): remove played song, promote next, but do NOT mark is_current
+  // The next song stays visually normal and draggable until actually started.
+  const nextItem = queue.advance(false);
   if (nextItem) {
     logger.info('playback', `[PREPARE-NEXT] ── next item id=${nextItem.id}, song_id=${nextItem.song_id}, title="${nextItem.title}", rs_name="${nextItem.rs_name}"`);
     await rocketshow.loadComposition(nextItem.rs_name);
 
-    // Update playback state to show the loaded song (but RS is not playing)
-    const song = library.getByRsName(nextItem.rs_name);
-    if (song) {
-      updateNested('playback', { currentSong: song });
-    }
+    // Clear currentSong — the song is loaded in RS but NOT playing
+    updateNested('playback', { currentSong: null });
     songEndHandled = true; // RS is stopped, don't trigger onSongEnd
     logger.info('playback', `[PREPARE-NEXT] ── Loaded (not playing): ${nextItem.title}`);
   } else {

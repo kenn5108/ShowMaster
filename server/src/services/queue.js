@@ -165,7 +165,13 @@ function clearCurrent() {
  * Marks current as played, promotes next to current.
  * Returns the new current queue item or null if queue is empty.
  */
-function advance() {
+/**
+ * Advance to the next song in queue.
+ * Marks current as played, removes it, promotes the next.
+ * @param {boolean} markAsCurrent - if true, set is_current=1 on promoted item (default: true).
+ *   Pass false when advancing without starting playback (manual mode prepare).
+ */
+function advance(markAsCurrent = true) {
   const db = getDb();
   const sessionId = getSessionId();
 
@@ -174,20 +180,25 @@ function advance() {
     UPDATE queue SET is_current = 0, played = 1 WHERE session_id = ? AND is_current = 1
   `).run(sessionId);
 
-  // Remove played items at position 0 and reindex
+  // Remove played items and reindex
   db.prepare(`
     DELETE FROM queue WHERE session_id = ? AND played = 1
   `).run(sessionId);
 
   reindex(sessionId);
 
-  // The new first item becomes current
+  // The new first item
   const next = db.prepare(`
     SELECT * FROM queue WHERE session_id = ? ORDER BY position ASC LIMIT 1
   `).get(sessionId);
 
   if (next) {
-    db.prepare('UPDATE queue SET is_current = 1, position = 0 WHERE id = ?').run(next.id);
+    if (markAsCurrent) {
+      db.prepare('UPDATE queue SET is_current = 1, position = 0 WHERE id = ?').run(next.id);
+    } else {
+      // Just ensure position = 0, but don't mark as current (not playing yet)
+      db.prepare('UPDATE queue SET position = 0 WHERE id = ?').run(next.id);
+    }
   }
 
   const queue = load();
