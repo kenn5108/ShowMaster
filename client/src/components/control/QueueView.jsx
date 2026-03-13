@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useRef } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 import { formatTime } from '../../utils/format';
@@ -41,10 +41,6 @@ export default function QueueView() {
   const handleRemove = (item) => {
     if (item.is_current) return;
     api.post('/queue/remove', { queueItemId: item.id }).catch(() => {});
-  };
-
-  const handlePlayItem = (item) => {
-    api.post('/playback/play', { queueItemId: item.id }).catch(() => {});
   };
 
   return (
@@ -106,25 +102,16 @@ export default function QueueView() {
                     <span className="song-duration">{formatTime(item.duration_ms)}</span>
                   </td>
                   <td>
-                    <div style={{ display: 'flex', gap: 4 }}>
+                    {!isCurrent && !liveLock && (
                       <button
                         className="btn btn-sm btn-secondary"
-                        onClick={() => handlePlayItem(item)}
-                        title="Jouer"
+                        onClick={() => handleRemove(item)}
+                        title="Retirer"
+                        style={{ color: 'var(--error)' }}
                       >
-                        ▶
+                        ✕
                       </button>
-                      {!isCurrent && !liveLock && (
-                        <button
-                          className="btn btn-sm btn-secondary"
-                          onClick={() => handleRemove(item)}
-                          title="Retirer"
-                          style={{ color: 'var(--error)' }}
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
+                    )}
                   </td>
                 </tr>
               );

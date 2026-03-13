@@ -41,10 +41,6 @@ export default function QueuePanel() {
     api.post('/queue/remove', { queueItemId: item.id }).catch(() => {});
   };
 
-  const handlePlay = (item) => {
-    api.post('/playback/play', { queueItemId: item.id }).catch(() => {});
-  };
-
   return (
     <div className="queue-panel">
       <div className="queue-panel-header">
@@ -82,7 +78,7 @@ export default function QueuePanel() {
                   )}
                   {!isCurrent && liveLock && <span className="queue-panel-num">{idx}</span>}
                 </div>
-                <div className="queue-panel-item-info" onClick={() => handlePlay(item)}>
+                <div className="queue-panel-item-info">
                   <div className="queue-panel-item-title">{item.title}</div>
                   <div className="queue-panel-item-artist">{item.artist || ''}</div>
                 </div>
