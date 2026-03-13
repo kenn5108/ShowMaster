@@ -51,50 +51,47 @@ function rsRequest(method, path, body = null) {
 /**
  * Poll RocketShow state. Called on interval.
  *
- * RocketShow API (Java/Spring) returns JSON like:
- *   { currentState: "PLAYING", currentPosition: 45000, currentDuration: 240000,
- *     currentCompositionName: "Song - Artist", currentCompositionIndex: 0, ... }
+ * Endpoint: GET /api/system/state
  *
- * We also handle alternative field names for resilience.
+ * Real RS response:
+ * {
+ *   "currentCompositionIndex": 0,
+ *   "playState": "PLAYING",
+ *   "currentCompositionName": "Example composition",
+ *   "currentCompositionDurationMillis": 242744,
+ *   "positionMillis": 224378
+ * }
  */
-let debugLogCount = 0; // log raw JSON first 5 polls for diagnostics
+let debugLogCount = 0;
 
 async function poll() {
   try {
-    const status = await rsRequest('GET', '/transport/current-state');
+    const status = await rsRequest('GET', '/system/state');
     const wasConnected = getState().rocketshow.connected;
 
-    // Debug: log the raw RS response on first few polls
+    // Debug: log raw JSON on first 5 polls
     if (debugLogCount < 5 && status) {
-      logger.info('rocketshow', `[DEBUG] Raw RS response: ${JSON.stringify(status)}`);
+      logger.info('rocketshow', `[DEBUG] Raw RS /api/system/state: ${JSON.stringify(status)}`);
       debugLogCount++;
     }
 
     if (!status || typeof status !== 'object') {
-      // Got a non-JSON or empty response — still connected but no useful data
       updateNested('rocketshow', { connected: true });
       if (!wasConnected) {
         logger.info('rocketshow', `Connected to RocketShow at ${rsHost}:${rsPort} (no state data yet)`);
       }
+      if (afterPollCallback) {
+        try { afterPollCallback(); } catch (e) { /* ignore */ }
+      }
       return;
     }
 
-    // Parse player state — try all known field names
-    const rawState = status.currentState || status.state || status.playerState || '';
-    const playerState = mapPlayerState(rawState);
-
-    // Parse position — try all known field names (RS uses millis)
-    const positionMs = firstNumber(
-      status.currentPosition, status.currentPositionMs, status.positionMillis, status.position
-    );
-
-    // Parse duration
-    const durationMs = firstNumber(
-      status.currentDuration, status.currentDurationMs, status.durationMillis, status.duration
-    );
-
-    // Parse current composition name
-    const currentComp = status.currentCompositionName || status.compositionName || status.name || null;
+    // ── Parse fields from real RS response ──
+    const playerState = mapPlayerState(status.playState || '');
+    const positionMs = typeof status.positionMillis === 'number' ? status.positionMillis : 0;
+    const durationMs = typeof status.currentCompositionDurationMillis === 'number'
+      ? status.currentCompositionDurationMillis : 0;
+    const currentComp = status.currentCompositionName || null;
 
     updateNested('rocketshow', {
       connected: true,
@@ -119,16 +116,6 @@ async function poll() {
       logger.warn('rocketshow', `Lost connection to RocketShow: ${err.message}`);
     }
   }
-}
-
-/**
- * Return the first argument that is a finite number, or 0.
- */
-function firstNumber(...args) {
-  for (const v of args) {
-    if (typeof v === 'number' && isFinite(v)) return v;
-  }
-  return 0;
 }
 
 function mapPlayerState(raw) {
