@@ -3,6 +3,13 @@ import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 import { formatTime } from '../../utils/format';
 
+/**
+ * QueueView — full-page queue view.
+ *
+ * Drag rules (same as QueuePanel):
+ *  - is_current === 1 (PLAYING or PAUSED) → locked, no drag, no remove
+ *  - is_current === 0 (never started, or STOPPED) → draggable, removable
+ */
 export default function QueueView() {
   const { state } = useSocket();
   const queue = state.queue || [];
@@ -10,14 +17,16 @@ export default function QueueView() {
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
 
+  const isLocked = (item) => item.is_current === 1;
+
   const handleDragStart = (idx) => {
-    if (idx === 0) return; // Can't drag current song
+    const item = queue[idx];
+    if (!item || isLocked(item)) return;
     dragItem.current = idx;
   };
 
   const handleDragOver = (e, idx) => {
     e.preventDefault();
-    if (idx === 0) return; // Can't drop on current
     dragOverItem.current = idx;
   };
 
@@ -27,7 +36,7 @@ export default function QueueView() {
     if (liveLock) return;
 
     const item = queue[dragItem.current];
-    if (!item || item.is_current) return;
+    if (!item || isLocked(item)) return;
 
     api.post('/queue/move', {
       queueItemId: item.id,
@@ -39,7 +48,7 @@ export default function QueueView() {
   };
 
   const handleRemove = (item) => {
-    if (item.is_current) return;
+    if (isLocked(item)) return;
     api.post('/queue/remove', { queueItemId: item.id }).catch(() => {});
   };
 
@@ -72,22 +81,22 @@ export default function QueueView() {
           <tbody>
             {queue.map((item, idx) => {
               const tags = tryParseJson(item.tags, []);
-              const isCurrent = item.is_current === 1;
+              const locked = isLocked(item);
 
               return (
                 <tr
                   key={item.id}
-                  className={isCurrent ? 'current-song' : ''}
-                  draggable={!isCurrent && !liveLock}
+                  className={locked ? 'current-song' : ''}
+                  draggable={!locked && !liveLock}
                   onDragStart={() => handleDragStart(idx)}
                   onDragOver={(e) => handleDragOver(e, idx)}
                   onDrop={handleDrop}
                 >
                   <td>
-                    {!isCurrent && !liveLock && (
+                    {!locked && !liveLock && (
                       <span className="drag-handle">⠿</span>
                     )}
-                    {isCurrent && <span style={{ color: 'var(--current-song)', fontWeight: 700 }}>▶</span>}
+                    {locked && <span style={{ color: 'var(--current-song)', fontWeight: 700 }}>▶</span>}
                   </td>
                   <td>
                     <div className="song-title">{item.title}</div>
@@ -102,7 +111,7 @@ export default function QueueView() {
                     <span className="song-duration">{formatTime(item.duration_ms)}</span>
                   </td>
                   <td>
-                    {!isCurrent && !liveLock && (
+                    {!locked && !liveLock && (
                       <button
                         className="btn btn-sm btn-secondary"
                         onClick={() => handleRemove(item)}

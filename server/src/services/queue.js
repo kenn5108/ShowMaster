@@ -111,8 +111,7 @@ function move(queueItemId, newPosition) {
 
   const item = db.prepare('SELECT * FROM queue WHERE id = ? AND session_id = ?').get(queueItemId, sessionId);
   if (!item) throw new Error('Queue item not found');
-  if (item.is_current) throw new Error('Cannot move the current song');
-  if (newPosition < 1) throw new Error('Cannot move to position 0 (reserved for current)');
+  if (item.is_current) throw new Error('Cannot move a song that is currently playing');
 
   const oldPos = item.position;
   if (oldPos === newPosition) return load();
@@ -145,6 +144,19 @@ function setCurrent(queueItemId) {
   if (queueItemId) {
     db.prepare('UPDATE queue SET is_current = 1 WHERE id = ? AND session_id = ?').run(queueItemId, sessionId);
   }
+  return load();
+}
+
+/**
+ * Clear is_current flag on all items (called on Stop).
+ * Makes the previously-current item movable/removable again.
+ */
+function clearCurrent() {
+  const db = getDb();
+  const session = getState().session;
+  if (!session) return [];
+  db.prepare('UPDATE queue SET is_current = 0 WHERE session_id = ?').run(session.id);
+  logger.info('queue', 'Cleared is_current (stop)');
   return load();
 }
 
@@ -248,4 +260,4 @@ function tryParseJson(str, fallback) {
   try { return JSON.parse(str); } catch { return fallback; }
 }
 
-module.exports = { load, add, remove, move, setCurrent, advance, clear, loadFromPlaylist };
+module.exports = { load, add, remove, move, setCurrent, clearCurrent, advance, clear, loadFromPlaylist };

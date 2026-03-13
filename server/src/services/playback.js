@@ -162,6 +162,8 @@ async function pause() {
 async function stop() {
   await rocketshow.transport.stop();
   songEndHandled = true; // manual stop, don't trigger onSongEnd
+  // Clear is_current so the item becomes movable/removable again
+  queue.clearCurrent();
   updateNested('playback', { currentSong: null });
 }
 

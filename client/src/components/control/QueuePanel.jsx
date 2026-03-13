@@ -5,7 +5,10 @@ import { formatTime } from '../../utils/format';
 
 /**
  * QueuePanel — compact queue always visible in the right panel.
- * Shows current song highlighted, drag & drop reorder, remove buttons.
+ *
+ * Drag rules:
+ *  - is_current === 1 (PLAYING or PAUSED) → locked, no drag, no remove
+ *  - is_current === 0 (never started, or STOPPED) → draggable, removable
  */
 export default function QueuePanel() {
   const { state } = useSocket();
@@ -14,14 +17,16 @@ export default function QueuePanel() {
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
 
+  const isLocked = (item) => item.is_current === 1;
+
   const handleDragStart = (idx) => {
-    if (idx === 0) return;
+    const item = queue[idx];
+    if (!item || isLocked(item)) return;
     dragItem.current = idx;
   };
 
   const handleDragOver = (e, idx) => {
     e.preventDefault();
-    if (idx === 0) return;
     dragOverItem.current = idx;
   };
 
@@ -30,14 +35,14 @@ export default function QueuePanel() {
     if (dragItem.current === dragOverItem.current) return;
     if (liveLock) return;
     const item = queue[dragItem.current];
-    if (!item || item.is_current) return;
+    if (!item || isLocked(item)) return;
     api.post('/queue/move', { queueItemId: item.id, newPosition: dragOverItem.current }).catch(() => {});
     dragItem.current = null;
     dragOverItem.current = null;
   };
 
   const handleRemove = (item) => {
-    if (item.is_current || liveLock) return;
+    if (isLocked(item) || liveLock) return;
     api.post('/queue/remove', { queueItemId: item.id }).catch(() => {});
   };
 
@@ -60,30 +65,30 @@ export default function QueuePanel() {
           </div>
         ) : (
           queue.map((item, idx) => {
-            const isCurrent = item.is_current === 1;
+            const locked = isLocked(item);
             return (
               <div
                 key={item.id}
-                className={`queue-panel-item ${isCurrent ? 'current' : ''}`}
-                draggable={!isCurrent && !liveLock}
+                className={`queue-panel-item ${locked ? 'current' : ''}`}
+                draggable={!locked && !liveLock}
                 onDragStart={() => handleDragStart(idx)}
                 onDragOver={(e) => handleDragOver(e, idx)}
                 onDrop={handleDrop}
               >
                 <div className="queue-panel-item-index">
-                  {isCurrent ? (
+                  {locked ? (
                     <span className="queue-panel-playing-icon">▶</span>
                   ) : (
                     !liveLock && <span className="drag-handle-sm">⠿</span>
                   )}
-                  {!isCurrent && liveLock && <span className="queue-panel-num">{idx}</span>}
+                  {!locked && liveLock && <span className="queue-panel-num">{idx + 1}</span>}
                 </div>
                 <div className="queue-panel-item-info">
                   <div className="queue-panel-item-title">{item.title}</div>
                   <div className="queue-panel-item-artist">{item.artist || ''}</div>
                 </div>
                 <div className="queue-panel-item-duration">{formatTime(item.duration_ms)}</div>
-                {!isCurrent && !liveLock && (
+                {!locked && !liveLock && (
                   <button className="queue-panel-item-remove" onClick={() => handleRemove(item)}>✕</button>
                 )}
               </div>
