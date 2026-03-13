@@ -90,8 +90,8 @@ export default function PlaylistView({ playlistId, onNavigate }) {
       setPopup({
         title: item.title,
         actions: [
-          { label: '\u2B06 Ajouter en haut de file', onClick: () => api.post('/queue/add', { songId: item.song_id, position: 'top' }) },
-          { label: '\u2B07 Ajouter en bas de file', onClick: () => api.post('/queue/add', { songId: item.song_id, position: 'bottom' }) },
+          { label: '⬆ Ajouter en haut de file', onClick: () => api.post('/queue/add', { songId: item.song_id, position: 'top' }) },
+          { label: '⬇ Ajouter en bas de file', onClick: () => api.post('/queue/add', { songId: item.song_id, position: 'bottom' }) },
         ],
       });
     }
@@ -105,7 +105,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
       items: [
         { label: 'Supprimer de la playlist', onClick: () => { api.delete(`/playlists/${playlistId}/items/${item.id}`).then(loadItems); } },
         { separator: true },
-        { label: '\u00c9diter les paroles', onClick: () => onNavigate('lyrics', { songId: item.song_id }) },
+        { label: 'Éditer les paroles', onClick: () => onNavigate('lyrics', { songId: item.song_id }) },
         { label: 'Ouvrir la synchro', onClick: () => onNavigate('sync', { songId: item.song_id }) },
       ],
     });
@@ -168,7 +168,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
             <th onClick={() => toggleSort('artist')}>
               Artiste {sortBy === 'artist' && (sortDir === 'asc' ? '\u2191' : '\u2193')}
             </th>
-            <th style={{ width: 70, textAlign: 'right' }}>Dur{'\u00E9'}e</th>
+            <th style={{ width: 70, textAlign: 'right' }}>Durée</th>
           </tr>
         </thead>
         <tbody>
@@ -191,7 +191,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
 
       {filteredItems.length === 0 && (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
-          {search || selectedTags.size > 0 ? 'Aucun r\u00e9sultat' : 'Playlist vide'}
+          {search || selectedTags.size > 0 ? 'Aucun résultat' : 'Playlist vide'}
         </div>
       )}
 
@@ -220,7 +220,7 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
           <span
             className="drag-handle"
             onTouchStart={onTouchDragStart}
-          >{'\u2817'}</span>
+          >⠿</span>
         )}
         {!canDrag && <span style={{ color: 'var(--text-muted)' }}>{idx + 1}</span>}
       </td>
@@ -232,7 +232,7 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
           {item.bpm && <span className="badge badge-bpm">{item.bpm} BPM</span>}
         </div>
       </td>
-      <td><span className="song-artist">{item.artist || '\u2014'}</span></td>
+      <td><span className="song-artist">{item.artist || '—'}</span></td>
       <td style={{ textAlign: 'right' }}>
         <span className="song-duration">{formatTime(item.duration_ms)}</span>
       </td>

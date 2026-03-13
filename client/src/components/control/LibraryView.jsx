@@ -144,7 +144,7 @@ export default function LibraryView({ onNavigate }) {
 
       {filteredSongs.length === 0 && (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
-          {search || selectedTags.size > 0 ? 'Aucun r\u00e9sultat' : 'Biblioth\u00e8que vide \u2014 synchronisez avec RocketShow'}
+          {search || selectedTags.size > 0 ? 'Aucun résultat' : 'Bibliothèque vide — synchronisez avec RocketShow'}
         </div>
       )}
 

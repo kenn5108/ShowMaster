@@ -93,13 +93,13 @@ export default function QueuePanel() {
               >
                 <div className="queue-panel-item-index">
                   {locked ? (
-                    <span className="queue-panel-playing-icon">{'\u25B6'}</span>
+                    <span className="queue-panel-playing-icon">▶</span>
                   ) : (
                     !liveLock && (
                       <span
                         className="drag-handle-sm"
                         onTouchStart={(e) => touchDrag.handleTouchStart(idx, e)}
-                      >{'\u2817'}</span>
+                      >⠿</span>
                     )
                   )}
                   {!locked && liveLock && <span className="queue-panel-num">{idx + 1}</span>}
@@ -110,7 +110,7 @@ export default function QueuePanel() {
                 </div>
                 <div className="queue-panel-item-duration">{formatTime(item.duration_ms)}</div>
                 {!locked && !liveLock && (
-                  <button className="queue-panel-item-remove" onClick={() => handleRemove(item)}>{'\u2715'}</button>
+                  <button className="queue-panel-item-remove" onClick={() => handleRemove(item)}>✕</button>
                 )}
               </div>
             );
