@@ -395,7 +395,8 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
   .right-panel-toggle { display: flex; }
 
   .sidebar {
-    position: fixed; left: 0; top: var(--header-height); bottom: var(--mobile-transport-height);
+    position: fixed; left: 0; top: var(--header-height);
+    bottom: calc(var(--mobile-transport-height) + env(safe-area-inset-bottom, 0px));
     z-index: 20; transform: translateX(-100%); transition: transform 0.2s ease;
   }
   .sidebar.open { transform: translateX(0); }
@@ -407,7 +408,8 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 
   /* Right panel slides in from right on mobile */
   .right-panel {
-    position: fixed; right: 0; top: var(--header-height); bottom: var(--mobile-transport-height);
+    position: fixed; right: 0; top: var(--header-height);
+    bottom: calc(var(--mobile-transport-height) + env(safe-area-inset-bottom, 0px));
     width: 100%; max-width: 340px; z-index: 18;
     transform: translateX(100%); transition: transform 0.2s ease;
   }
@@ -423,11 +425,11 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
     flex-direction: column;
     position: fixed;
     bottom: 0; left: 0; right: 0;
-    height: var(--mobile-transport-height);
+    height: calc(var(--mobile-transport-height) + env(safe-area-inset-bottom, 0px));
     background: var(--bg-secondary);
-    border-top: 1px solid var(--border);
-    z-index: 25;
-    padding: 6px 12px 10px;
+    border-top: 2px solid lime; /* DEBUG — retirer après validation */
+    z-index: 35; /* ABOVE drawer (30) and overlay (29) — player never hidden */
+    padding: 6px 12px calc(10px + env(safe-area-inset-bottom, 0px));
     gap: 4px;
   }
 
@@ -529,17 +531,17 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
   .mobile-drawer-overlay {
     display: block;
     position: fixed; top: 0; left: 0; right: 0;
-    bottom: var(--mobile-transport-height);
+    bottom: calc(var(--mobile-transport-height) + env(safe-area-inset-bottom, 0px));
     background: rgba(0,0,0,0.6); z-index: 29;
   }
 
   .mobile-drawer {
     display: flex; flex-direction: column;
     position: fixed; left: 0; right: 0;
-    bottom: var(--mobile-transport-height);
-    max-height: 60vh; height: auto;
+    bottom: calc(var(--mobile-transport-height) + env(safe-area-inset-bottom, 0px));
+    max-height: 55vh;
     background: var(--bg-secondary);
-    border-top: 1px solid var(--border);
+    border-top: 2px solid cyan; /* DEBUG — retirer après validation */
     border-radius: 16px 16px 0 0;
     z-index: 30;
     transform: translateY(100%);

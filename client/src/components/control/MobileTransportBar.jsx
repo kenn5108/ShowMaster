@@ -44,74 +44,78 @@ export default function MobileTransportBar() {
   };
 
   return (
-    <div className="mobile-transport">
-      {/* Song info + progress row */}
-      <div className="mobile-transport-info">
-        <div className="mobile-transport-song">
-          {currentSong ? (
-            <>
-              <span className="mobile-transport-title">{currentSong.title}</span>
-              <span className="mobile-transport-artist">{currentSong.artist}</span>
-            </>
-          ) : (
-            <span className="mobile-transport-idle">Aucun morceau</span>
-          )}
-        </div>
-        <div className="mobile-transport-time">
-          <span>{formatTime(rs.positionMs)}</span>
-          <span>{formatTime(rs.durationMs)}</span>
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div className="mobile-transport-progress" onClick={handleSeek} onTouchEnd={handleSeek}>
-        <div className="mobile-transport-progress-fill" style={{ width: `${progress}%` }} />
-      </div>
-
-      {/* Controls row */}
-      <div className="mobile-transport-controls">
-        <button
-          className={`mobile-transport-mode ${playback.mode === 'auto' ? 'mode-auto' : 'mode-manual'}`}
-          onClick={toggleMode}
-        >
-          {playback.mode === 'auto' ? 'AUTO' : 'MAN'}
-        </button>
-
-        <button className="mobile-transport-btn" onClick={handleStop} title="Stop">
-          ⏹
-        </button>
-
-        {isPlaying ? (
-          <button className="mobile-transport-btn mobile-transport-btn-main" onClick={handlePause} title="Pause">
-            ⏸
-          </button>
-        ) : (
-          <button className="mobile-transport-btn mobile-transport-btn-main" onClick={handlePlay} title="Play">
-            ▶
-          </button>
-        )}
-
-        <button className="mobile-transport-btn" onClick={handleNext} title="Suivant">
-          ⏭
-        </button>
-
-        {/* Queue drawer toggle — chevron + badge (tap = toggle) */}
-        <button
-          className={`mobile-transport-queue-btn ${drawerOpen ? 'drawer-open' : ''}`}
-          onClick={() => setDrawerOpen(prev => !prev)}
-          title="File d'attente"
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="4,13 10,7 16,13" />
-          </svg>
-          {queue.length > 0 && (
-            <span className="mobile-transport-queue-badge">{queue.length}</span>
-          )}
-        </button>
-      </div>
-
-      {/* Queue drawer (bottom sheet) */}
+    <>
+      {/* Queue drawer — MUST be a sibling, never a child of .mobile-transport.
+          Fixed-inside-fixed causes stacking issues on iOS Safari. */}
       <MobileQueueDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
-    </div>
+
+      {/* Player — always visible, always on top */}
+      <div className="mobile-transport">
+        {/* Song info + progress row */}
+        <div className="mobile-transport-info">
+          <div className="mobile-transport-song">
+            {currentSong ? (
+              <>
+                <span className="mobile-transport-title">{currentSong.title}</span>
+                <span className="mobile-transport-artist">{currentSong.artist}</span>
+              </>
+            ) : (
+              <span className="mobile-transport-idle">Aucun morceau</span>
+            )}
+          </div>
+          <div className="mobile-transport-time">
+            <span>{formatTime(rs.positionMs)}</span>
+            <span>{formatTime(rs.durationMs)}</span>
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        <div className="mobile-transport-progress" onClick={handleSeek} onTouchEnd={handleSeek}>
+          <div className="mobile-transport-progress-fill" style={{ width: `${progress}%` }} />
+        </div>
+
+        {/* Controls row */}
+        <div className="mobile-transport-controls">
+          <button
+            className={`mobile-transport-mode ${playback.mode === 'auto' ? 'mode-auto' : 'mode-manual'}`}
+            onClick={toggleMode}
+          >
+            {playback.mode === 'auto' ? 'AUTO' : 'MAN'}
+          </button>
+
+          <button className="mobile-transport-btn" onClick={handleStop} title="Stop">
+            ⏹
+          </button>
+
+          {isPlaying ? (
+            <button className="mobile-transport-btn mobile-transport-btn-main" onClick={handlePause} title="Pause">
+              ⏸
+            </button>
+          ) : (
+            <button className="mobile-transport-btn mobile-transport-btn-main" onClick={handlePlay} title="Play">
+              ▶
+            </button>
+          )}
+
+          <button className="mobile-transport-btn" onClick={handleNext} title="Suivant">
+            ⏭
+          </button>
+
+          {/* Queue drawer toggle — chevron + badge (tap = toggle) */}
+          <button
+            className={`mobile-transport-queue-btn ${drawerOpen ? 'drawer-open' : ''}`}
+            onClick={() => setDrawerOpen(prev => !prev)}
+            title="File d'attente"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="4,13 10,7 16,13" />
+            </svg>
+            {queue.length > 0 && (
+              <span className="mobile-transport-queue-badge">{queue.length}</span>
+            )}
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
