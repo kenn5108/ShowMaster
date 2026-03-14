@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 import { formatTimeMMSS } from '../../utils/format';
@@ -6,11 +6,11 @@ import { formatTimeMMSS } from '../../utils/format';
 /**
  * MiniPrompter — compact lyrics preview in the right panel.
  * Shows current song, active line, a few surrounding lines, time remaining.
+ * Single source of truth: queue head (is_current=1 or queue[0]).
  */
 export default function MiniPrompter() {
   const { state } = useSocket();
   const rs = state.rocketshow || {};
-  const playback = state.playback || {};
   const queue = state.queue || [];
   const stageMessage = state.stageMessage || '';
 
@@ -19,39 +19,42 @@ export default function MiniPrompter() {
   const [activeLine, setActiveLine] = useState(-1);
   const lastSongId = useRef(null);
 
-  const currentSong = playback.currentSong;
-  // Priority: is_current=1 (playing/paused) → queue[0] (prepared state) → null
-  const currentQueueItem = queue.find(q => q.is_current === 1) || queue[0] || null;
+  // Single source: queue head (playing item or first in line)
+  const currentQueueItem = useMemo(() => {
+    return queue.find(q => q.is_current === 1) || queue[0] || null;
+  }, [queue]);
+
+  const currentSongId = currentQueueItem?.song_id || null;
   const currentIdx = currentQueueItem ? queue.indexOf(currentQueueItem) : -1;
   const nextSong = currentIdx >= 0 && currentIdx + 1 < queue.length ? queue[currentIdx + 1] : null;
   const isPlaying = rs.playerState === 'PLAYING' || rs.playerState === 'PAUSED';
-  // Use RS data when playing, fallback to queue item duration for prepared state
   const durationMs = isPlaying ? (rs.durationMs || 0) : (currentQueueItem?.duration_ms || rs.durationMs || 0);
   const positionMs = isPlaying ? (rs.positionMs || 0) : 0;
   const remainingMs = Math.max(0, durationMs - positionMs);
 
-  // Load lyrics when song changes
+  // Load lyrics when queue head song changes
   useEffect(() => {
-    const songId = currentQueueItem?.song_id || currentSong?.id;
-    if (!songId || songId === lastSongId.current) return;
-    lastSongId.current = songId;
-
-    api.get(`/lyrics/${songId}`).then(data => {
-      setLyrics((data.text || '').split('\n'));
-    }).catch(() => setLyrics([]));
-
-    api.get(`/lyrics/${songId}/cues`).then(setCues).catch(() => setCues([]));
-  }, [currentQueueItem?.song_id, currentSong?.id]);
-
-  // Reset when no song
-  useEffect(() => {
-    if (!currentSong && !currentQueueItem) {
+    if (!currentSongId) {
       setLyrics([]);
       setCues([]);
       setActiveLine(-1);
       lastSongId.current = null;
+      return;
     }
-  }, [currentSong, currentQueueItem]);
+    if (currentSongId === lastSongId.current) return;
+    lastSongId.current = currentSongId;
+
+    // Clear old lyrics immediately
+    setLyrics([]);
+    setCues([]);
+    setActiveLine(-1);
+
+    api.get(`/lyrics/${currentSongId}`).then(data => {
+      setLyrics((data.text || '').split('\n'));
+    }).catch(() => setLyrics([]));
+
+    api.get(`/lyrics/${currentSongId}/cues`).then(setCues).catch(() => setCues([]));
+  }, [currentSongId]);
 
   // Compute active line
   useEffect(() => {
@@ -76,8 +79,8 @@ export default function MiniPrompter() {
     }
   }
 
-  const title = currentSong?.title || currentQueueItem?.title || null;
-  const artist = currentSong?.artist || currentQueueItem?.artist || null;
+  const title = currentQueueItem?.title || null;
+  const artist = currentQueueItem?.artist || null;
 
   return (
     <div className="mini-prompter">

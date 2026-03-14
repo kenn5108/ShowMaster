@@ -10,6 +10,7 @@ import SyncEditor from './SyncEditor';
 import SettingsView from './SettingsView';
 import LogsView from './LogsView';
 import TransportBar from './TransportBar';
+import MobileTransportBar from './MobileTransportBar';
 import QueuePanel from './QueuePanel';
 import MiniPrompter from './MiniPrompter';
 
@@ -96,8 +97,9 @@ export default function ControlLayout() {
         </aside>
       </div>
 
-      {/* Transport */}
+      {/* Transport — desktop: full bar, mobile: compact fixed bar */}
       <TransportBar />
+      <MobileTransportBar />
     </div>
   );
 }

@@ -19,6 +19,7 @@
   --right-panel-width: 340px;
   --header-height: 48px;
   --transport-height: 64px;
+  --mobile-transport-height: 110px;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -375,6 +376,12 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 .tag-filter-clear:hover { color: var(--error); }
 
 /* ════════════════════════════════════
+   MOBILE TRANSPORT BAR
+   ════════════════════════════════════ */
+/* Hidden on desktop by default */
+.mobile-transport { display: none; }
+
+/* ════════════════════════════════════
    RESPONSIVE
    ════════════════════════════════════ */
 @media (max-width: 1024px) {
@@ -386,7 +393,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
   .right-panel-toggle { display: flex; }
 
   .sidebar {
-    position: fixed; left: 0; top: var(--header-height); bottom: var(--transport-height);
+    position: fixed; left: 0; top: var(--header-height); bottom: var(--mobile-transport-height);
     z-index: 20; transform: translateX(-100%); transition: transform 0.2s ease;
   }
   .sidebar.open { transform: translateX(0); }
@@ -398,14 +405,111 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 
   /* Right panel slides in from right on mobile */
   .right-panel {
-    position: fixed; right: 0; top: var(--header-height); bottom: var(--transport-height);
+    position: fixed; right: 0; top: var(--header-height); bottom: var(--mobile-transport-height);
     width: 100%; max-width: 340px; z-index: 18;
     transform: translateX(100%); transition: transform 0.2s ease;
   }
   .right-panel.open { transform: translateX(0); }
 
-  .main-content { padding: 12px; }
-  .transport-bar { padding: 0 8px; gap: 8px; }
+  .main-content { padding: 12px; padding-bottom: calc(var(--mobile-transport-height) + 8px); }
+
+  /* Hide desktop transport, show mobile transport */
+  .transport-bar { display: none; }
+
+  .mobile-transport {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: var(--mobile-transport-height);
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    z-index: 25;
+    padding: 6px 12px 10px;
+    gap: 4px;
+  }
+
+  /* Song info row: title/artist left, time right */
+  .mobile-transport-info {
+    display: flex; align-items: center; justify-content: space-between;
+    min-height: 28px;
+  }
+  .mobile-transport-song {
+    display: flex; flex-direction: column; min-width: 0; flex: 1;
+  }
+  .mobile-transport-title {
+    font-size: 13px; font-weight: 600; color: var(--text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .mobile-transport-artist {
+    font-size: 11px; color: var(--text-secondary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .mobile-transport-idle {
+    font-size: 13px; color: var(--text-muted);
+  }
+  .mobile-transport-time {
+    display: flex; gap: 8px; font-size: 11px; color: var(--text-muted);
+    font-variant-numeric: tabular-nums; flex-shrink: 0; margin-left: 12px;
+  }
+
+  /* Progress bar */
+  .mobile-transport-progress {
+    width: 100%; height: 6px; background: var(--border); border-radius: 3px;
+    cursor: pointer; touch-action: none; flex-shrink: 0;
+  }
+  .mobile-transport-progress-fill {
+    height: 100%; background: var(--accent); border-radius: 3px;
+    transition: width 0.15s linear;
+  }
+
+  /* Controls row: mode + buttons centered + queue count */
+  .mobile-transport-controls {
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px; padding-top: 2px;
+  }
+
+  /* Transport buttons — big for touch */
+  .mobile-transport-btn {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--bg-card); color: var(--text-primary);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; border: none; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s;
+  }
+  .mobile-transport-btn:active { background: var(--accent); }
+
+  /* Main play/pause button — larger & accent */
+  .mobile-transport-btn-main {
+    width: 56px; height: 56px; font-size: 24px;
+    background: var(--accent); color: white;
+  }
+  .mobile-transport-btn-main:active { background: var(--accent-hover); }
+
+  /* Mode toggle */
+  .mobile-transport-mode {
+    font-size: 11px; font-weight: 700; padding: 6px 10px; border-radius: 14px;
+    border: none; cursor: pointer; letter-spacing: 0.5px;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s;
+  }
+  .mobile-transport-mode.mode-auto {
+    background: var(--accent); color: white;
+  }
+  .mobile-transport-mode.mode-manual {
+    background: var(--bg-card); color: var(--text-secondary);
+  }
+  .mobile-transport-mode:active { opacity: 0.8; }
+
+  /* Queue count badge */
+  .mobile-transport-queue-count {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--bg-card); color: var(--text-secondary);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+  }
+
   .settings-section { display: none; }
   .sidebar-item-secondary { display: none; }
 }

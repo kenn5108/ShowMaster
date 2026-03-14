@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 import { formatTime, formatTimeMMSS } from '../../utils/format';
@@ -6,41 +6,52 @@ import { formatTime, formatTimeMMSS } from '../../utils/format';
 export default function PrompterView() {
   const { state } = useSocket();
   const rs = state.rocketshow || {};
-  const playback = state.playback || {};
   const queue = state.queue || [];
   const stageMessage = state.stageMessage || '';
 
   const [lyrics, setLyrics] = useState([]);
   const [cues, setCues] = useState([]);
   const [activeLine, setActiveLine] = useState(-1);
-  const [currentSong, setCurrentSong] = useState(null);
-  const [nextSong, setNextSong] = useState(null);
   const activeRef = useRef(null);
   const lastSongId = useRef(null);
 
-  // Track current and next song from queue
+  // Compute current and next song directly from queue (no intermediate state)
   // Priority: is_current=1 (playing/paused) → queue[0] (prepared state) → null
-  useEffect(() => {
-    const playing = queue.find(q => q.is_current === 1);
-    const current = playing || queue[0] || null;
-    const currentIdx = current ? queue.indexOf(current) : -1;
-    setCurrentSong(current);
-    setNextSong(currentIdx >= 0 && currentIdx + 1 < queue.length ? queue[currentIdx + 1] : null);
+  const currentSong = useMemo(() => {
+    return queue.find(q => q.is_current === 1) || queue[0] || null;
   }, [queue]);
 
-  // Load lyrics when current song changes
-  useEffect(() => {
-    const songId = currentSong?.song_id;
-    if (!songId || songId === lastSongId.current) return;
-    lastSongId.current = songId;
+  const currentSongId = currentSong?.song_id || null;
 
-    api.get(`/lyrics/${songId}`).then(data => {
-      const text = data.text || '';
-      setLyrics(text.split('\n'));
+  const nextSong = useMemo(() => {
+    if (!currentSong) return null;
+    const idx = queue.indexOf(currentSong);
+    return idx >= 0 && idx + 1 < queue.length ? queue[idx + 1] : null;
+  }, [queue, currentSong]);
+
+  // Load lyrics when the head song changes
+  useEffect(() => {
+    if (!currentSongId) {
+      setLyrics([]);
+      setCues([]);
+      setActiveLine(-1);
+      lastSongId.current = null;
+      return;
+    }
+    if (currentSongId === lastSongId.current) return;
+    lastSongId.current = currentSongId;
+
+    // Clear old lyrics immediately before loading new ones
+    setLyrics([]);
+    setCues([]);
+    setActiveLine(-1);
+
+    api.get(`/lyrics/${currentSongId}`).then(data => {
+      setLyrics((data.text || '').split('\n'));
     }).catch(() => setLyrics([]));
 
-    api.get(`/lyrics/${songId}/cues`).then(setCues).catch(() => setCues([]));
-  }, [currentSong?.song_id]);
+    api.get(`/lyrics/${currentSongId}/cues`).then(setCues).catch(() => setCues([]));
+  }, [currentSongId]);
 
   // Update active line based on position
   useEffect(() => {
