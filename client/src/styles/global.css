@@ -515,6 +515,8 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
     transition: background 0.15s;
   }
   .mobile-transport-queue-btn:active { background: rgba(255,255,255,0.15); }
+  .mobile-transport-queue-btn svg { transition: transform 0.25s ease; }
+  .mobile-transport-queue-btn.drawer-open svg { transform: rotate(180deg); }
   .mobile-transport-queue-badge {
     position: absolute; top: 0; right: -2px;
     background: var(--accent); color: white;
@@ -523,10 +525,11 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
     line-height: 1; padding: 0 4px;
   }
 
-  /* ── Mobile Queue Drawer (bottom sheet) ── */
+  /* ── Mobile Queue Drawer (above player, never covers it) ── */
   .mobile-drawer-overlay {
     display: block;
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    position: fixed; top: 0; left: 0; right: 0;
+    bottom: var(--mobile-transport-height);
     background: rgba(0,0,0,0.6); z-index: 29;
   }
 
