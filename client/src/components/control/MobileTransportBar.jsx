@@ -1,19 +1,21 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 import { formatTime } from '../../utils/format';
+import MobileQueueDrawer from './MobileQueueDrawer';
 
 /**
  * MobileTransportBar — fixed bottom bar visible only on mobile (≤768px).
  * Always accessible regardless of sidebar / right-panel state.
  * Big touch-friendly buttons: Stop, Play/Pause, Next, Auto/Manual toggle.
- * Shows current song title, progress bar, elapsed/remaining time.
+ * Chevron button opens MobileQueueDrawer (bottom sheet with full queue).
  */
 export default function MobileTransportBar() {
   const { state } = useSocket();
   const rs = state.rocketshow || {};
   const playback = state.playback || {};
   const queue = state.queue || [];
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const isPlaying = rs.playerState === 'PLAYING';
   const isPaused = rs.playerState === 'PAUSED';
@@ -93,11 +95,23 @@ export default function MobileTransportBar() {
           ⏭
         </button>
 
-        {/* Queue count badge */}
-        <div className="mobile-transport-queue-count">
-          {queue.length}
-        </div>
+        {/* Queue drawer toggle — chevron + badge */}
+        <button
+          className="mobile-transport-queue-btn"
+          onClick={() => setDrawerOpen(true)}
+          title="File d'attente"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="4,13 10,7 16,13" />
+          </svg>
+          {queue.length > 0 && (
+            <span className="mobile-transport-queue-badge">{queue.length}</span>
+          )}
+        </button>
       </div>
+
+      {/* Queue drawer (bottom sheet) */}
+      <MobileQueueDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </div>
   );
 }
