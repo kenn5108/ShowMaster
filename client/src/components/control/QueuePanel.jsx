@@ -97,16 +97,14 @@ export default function QueuePanel() {
                 onDragStart={() => handleDragStart(idx)}
                 onDragOver={(e) => handleDragOver(e, idx)}
                 onDrop={handleDrop}
+                {...(!locked && !liveLock ? touchDrag.rowTouchHandlers(idx) : {})}
               >
                 <div className="queue-panel-item-index">
                   {locked ? (
                     <span className="queue-panel-playing-icon">▶</span>
                   ) : (
                     !liveLock && (
-                      <span
-                        className="drag-handle-sm"
-                        onTouchStart={(e) => touchDrag.handleTouchStart(idx, e)}
-                      >⠿</span>
+                      <span className="drag-handle-sm">⠿</span>
                     )
                   )}
                   {!locked && liveLock && <span className="queue-panel-num">{idx + 1}</span>}

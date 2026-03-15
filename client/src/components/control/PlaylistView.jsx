@@ -181,7 +181,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
               onDragStart={() => handleDragStart(idx)}
               onDragOver={(e) => handleDragOver(e, idx)}
               onDrop={handleDrop}
-              onTouchDragStart={(e) => touchDrag.handleTouchStart(idx, e)}
+              dragRowHandlers={touchDrag.rowTouchHandlers(idx)}
               onShortPress={() => handleShortPress(item)}
               onLongPress={(e) => handleLongPress(item, e)}
             />
@@ -201,9 +201,21 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   );
 }
 
-function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, onTouchDragStart, onShortPress, onLongPress }) {
+function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, dragRowHandlers, onShortPress, onLongPress }) {
   const tags = tryParseJson(item.tags, []);
   const pressHandlers = useLongPress(onShortPress, onLongPress);
+
+  // Merge touch handlers: both useLongPress and useTouchDrag need touch events.
+  // Row-level drag handlers are only active when canDrag is true.
+  const mergedHandlers = { ...pressHandlers };
+  if (canDrag && dragRowHandlers) {
+    const origTouchStart = pressHandlers.onTouchStart;
+    const origTouchMove = pressHandlers.onTouchMove;
+    const origTouchEnd = pressHandlers.onTouchEnd;
+    mergedHandlers.onTouchStart = (e) => { origTouchStart?.(e); dragRowHandlers.onTouchStart?.(e); };
+    mergedHandlers.onTouchMove = (e) => { origTouchMove?.(e); dragRowHandlers.onTouchMove?.(e); };
+    mergedHandlers.onTouchEnd = (e) => { origTouchEnd?.(e); dragRowHandlers.onTouchEnd?.(e); };
+  }
 
   return (
     <tr
@@ -212,15 +224,12 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}
-      {...pressHandlers}
+      {...mergedHandlers}
       style={{ cursor: 'pointer' }}
     >
       <td>
         {canDrag && (
-          <span
-            className="drag-handle"
-            onTouchStart={onTouchDragStart}
-          >⠿</span>
+          <span className="drag-handle">⠿</span>
         )}
         {!canDrag && <span style={{ color: 'var(--text-muted)' }}>{idx + 1}</span>}
       </td>

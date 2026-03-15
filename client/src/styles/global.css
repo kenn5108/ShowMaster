@@ -148,6 +148,14 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
   border-left: 3px solid var(--current-song);
 }
 /* Touch drag visual states for queue panel items */
+.queue-panel-item.touch-drag-armed {
+  background: rgba(233,69,96,0.18);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  transform: scale(1.03);
+  z-index: 5; position: relative;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
 .queue-panel-item.touch-dragging { opacity: 0.5; background: rgba(233,69,96,0.1); }
 .queue-panel-item.touch-drag-over { background: rgba(233,69,96,0.25); box-shadow: inset 0 -2px 0 var(--accent); }
 
@@ -281,6 +289,14 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 .song-table tr.current-song td:first-child { border-left: 3px solid var(--current-song); }
 
 /* Touch drag visual states */
+.song-table tr.touch-drag-armed {
+  background: rgba(233,69,96,0.18);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  transform: scale(1.02);
+  z-index: 5; position: relative;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
 .song-table tr.touch-dragging { opacity: 0.5; background: rgba(233,69,96,0.1); }
 .song-table tr.touch-drag-over { background: rgba(233,69,96,0.25); box-shadow: inset 0 -2px 0 var(--accent); }
 
@@ -647,6 +663,14 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
   .mobile-drawer-item-remove:active { color: var(--error); background: rgba(239,68,68,0.15); }
 
   /* Touch drag states for drawer items */
+  .mobile-drawer-item.touch-drag-armed {
+    background: rgba(233,69,96,0.18);
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+    transform: scale(1.03);
+    z-index: 5; position: relative;
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
   .mobile-drawer-item.touch-dragging { opacity: 0.5; background: rgba(233,69,96,0.1); }
   .mobile-drawer-item.touch-drag-over { background: rgba(233,69,96,0.25); box-shadow: inset 0 -2px 0 var(--accent); }
 

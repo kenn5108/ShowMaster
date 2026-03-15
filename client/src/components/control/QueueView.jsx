@@ -116,13 +116,11 @@ export default function QueueView() {
                   onDragStart={() => handleDragStart(idx)}
                   onDragOver={(e) => handleDragOver(e, idx)}
                   onDrop={handleDrop}
+                  {...(!locked && !liveLock ? touchDrag.rowTouchHandlers(idx) : {})}
                 >
                   <td>
                     {!locked && !liveLock && (
-                      <span
-                        className="drag-handle"
-                        onTouchStart={(e) => touchDrag.handleTouchStart(idx, e)}
-                      >⠿</span>
+                      <span className="drag-handle">⠿</span>
                     )}
                     {locked && <span style={{ color: 'var(--current-song)', fontWeight: 700 }}>▶</span>}
                   </td>
