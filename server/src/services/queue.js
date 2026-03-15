@@ -267,8 +267,28 @@ function loadFromPlaylist(playlistId) {
   return load();
 }
 
+/**
+ * Remove the head item (position 0) regardless of is_current flag.
+ * Used by skipWhileStopped() when the head may or may not be marked current.
+ */
+function removeHead() {
+  const db = getDb();
+  const sessionId = getSessionId();
+
+  const head = db.prepare(
+    'SELECT id FROM queue WHERE session_id = ? ORDER BY position ASC LIMIT 1'
+  ).get(sessionId);
+
+  if (!head) return [];
+
+  db.prepare('DELETE FROM queue WHERE id = ?').run(head.id);
+  reindex(sessionId);
+  logger.info('queue', `Removed head item #${head.id} (skip while stopped)`);
+  return load();
+}
+
 function tryParseJson(str, fallback) {
   try { return JSON.parse(str); } catch { return fallback; }
 }
 
-module.exports = { load, add, remove, move, setCurrent, clearCurrent, advance, clear, loadFromPlaylist };
+module.exports = { load, add, remove, move, setCurrent, clearCurrent, advance, clear, loadFromPlaylist, removeHead };

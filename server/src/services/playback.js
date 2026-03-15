@@ -172,22 +172,66 @@ async function stop() {
 }
 
 async function next() {
-  const mode = getState().playback.mode;
+  const state = getState();
+  const mode = state.playback.mode;
+  const playerState = state.rocketshow.playerState;
   songEndHandled = true; // set guard BEFORE await to prevent race with poll
-  await rocketshow.transport.stop();
 
-  if (mode === 'auto') {
-    // Auto: advance and start playing
-    await advanceToNext();
+  if (playerState === 'PLAYING' || playerState === 'PAUSED') {
+    // ── Transport is active: stop first, then branch on mode ──
+    await rocketshow.transport.stop();
+
+    if (mode === 'auto') {
+      // Auto + active: advance and start playing immediately
+      await advanceToNext();
+    } else {
+      // Manual + active: advance, load next, don't play
+      await prepareNext();
+    }
   } else {
-    // Manual: advance queue, load composition but do NOT play
-    await prepareNext();
+    // ── Transport is STOPPED: skip = preparatory advance ──
+    // Regardless of mode, just remove head and prepare next without playing.
+    // Auto mode is suspended while STOPPED — autoplay only resumes on Play.
+    await skipWhileStopped();
+  }
+}
+
+/**
+ * Skip while transport is STOPPED.
+ * Removes the head of queue (whether is_current or not) and loads the next one.
+ * Does NOT start playback. Works in both auto and manual mode.
+ */
+async function skipWhileStopped() {
+  const currentQueue = getState().queue;
+  if (currentQueue.length === 0) {
+    logger.info('playback', '[SKIP-STOPPED] ── Queue empty, nothing to skip.');
+    return;
+  }
+
+  const head = currentQueue[0];
+  logger.info('playback', `[SKIP-STOPPED] ── Removing head: id=${head.id}, title="${head.title}" (is_current=${head.is_current})`);
+
+  // Remove head item directly (bypass advance() which requires is_current=1)
+  queue.removeHead();
+
+  // Clear playback state since the current song is gone
+  updateNested('playback', { currentSong: null });
+
+  // Load next if available
+  const newQueue = getState().queue;
+  if (newQueue.length > 0) {
+    const next = newQueue[0];
+    logger.info('playback', `[SKIP-STOPPED] ── Loading next: id=${next.id}, title="${next.title}", rs_name="${next.rs_name}"`);
+    await rocketshow.loadComposition(next.rs_name);
+    logger.info('playback', `[SKIP-STOPPED] ── Prepared (not playing): ${next.title}`);
+  } else {
+    logger.info('playback', '[SKIP-STOPPED] ── Queue exhausted after skip.');
   }
 }
 
 /**
  * Advance queue and load next composition WITHOUT playing.
- * Used by manual-mode "Next" button.
+ * Used by manual-mode "Next" button when transport is active.
  */
 async function prepareNext() {
   // advance(false): remove played song, promote next, but do NOT mark is_current
