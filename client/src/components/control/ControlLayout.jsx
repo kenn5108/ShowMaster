@@ -55,6 +55,23 @@ export default function ControlLayout() {
 
   const ViewComponent = VIEWS[activeView] || LibraryView;
 
+  // ── Block native context menu on interactive areas (touch long-press) ──
+  // Allows it on real text-editing elements (input, textarea, contenteditable).
+  useEffect(() => {
+    const isEditable = (el) => {
+      if (!el || !el.tagName) return false;
+      const tag = el.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+      if (el.isContentEditable) return true;
+      return false;
+    };
+    const handler = (e) => {
+      if (!isEditable(e.target)) e.preventDefault();
+    };
+    document.addEventListener('contextmenu', handler, { passive: false });
+    return () => document.removeEventListener('contextmenu', handler);
+  }, []);
+
   // ── Wake Lock: keep screen on while the app is visible ──
   // Strategy 1: Wake Lock API (requires secure context — HTTPS or localhost)
   // Strategy 2: Invisible video loop fallback (works on HTTP, Android Chrome, Safari)

@@ -35,10 +35,17 @@ html, body, #root {
 
 button { cursor: pointer; border: none; background: none; color: inherit; font: inherit; }
 
+/* Suppress long-press callout (iOS Safari "Copy / Look Up" bubble)
+   on interactive areas.  Re-enabled on real text-editing elements below. */
+.app-layout { -webkit-touch-callout: none; }
+
 input, textarea, select {
   font: inherit; color: var(--text-primary); background: var(--bg-input);
   border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; outline: none;
+  /* Re-enable native context menu & touch callout on real text fields */
+  -webkit-touch-callout: default;
 }
+[contenteditable] { -webkit-touch-callout: default; }
 input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 
 ::-webkit-scrollbar { width: 5px; }
