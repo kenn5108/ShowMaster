@@ -40,10 +40,15 @@ export function useLongPress(onShortPress, onLongPress, delay = 500) {
     }
     // Only fire short press if: not a long press AND finger didn't move
     if (!isLongPress.current && !touchMoved.current) {
+      // Prevent the browser from synthesising a 'click' event after touchEnd.
+      // Without this the synthetic click can land on the popup overlay and
+      // immediately trigger onClose, making the popup flash then disappear.
+      e.preventDefault();
       onShortPress?.(e);
     }
-    // Reset touchUsed after a small delay so the subsequent click event is ignored
-    setTimeout(() => { touchUsed.current = false; }, 300);
+    // Reset touchUsed after a delay longer than the browser's synthetic-click
+    // window (~300 ms) so the onClick guard stays active as a safety net.
+    setTimeout(() => { touchUsed.current = false; }, 400);
   }, [onShortPress]);
 
   const onTouchMove = useCallback(() => {
