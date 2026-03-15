@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import Sidebar from './Sidebar';
 import LibraryView from './LibraryView';
@@ -53,6 +53,21 @@ export default function ControlLayout() {
 
   const ViewComponent = VIEWS[activeView] || LibraryView;
 
+  // ── DEBUG: viewport info — remove after tablet validation ──
+  const [vpInfo, setVpInfo] = useState('');
+  useEffect(() => {
+    const update = () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const layout = w <= 768 ? 'MOBILE' : 'DESKTOP';
+      const dvh = CSS.supports?.('height', '100dvh') ? 'dvh:YES' : 'dvh:NO';
+      setVpInfo(`${w}×${h} | ${layout} | ${dvh}`);
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
   return (
     <div className="app-layout">
       {/* Header */}
@@ -104,6 +119,18 @@ export default function ControlLayout() {
       {/* Transport — desktop: full bar, mobile: compact fixed bar */}
       <TransportBar />
       <MobileTransportBar />
+
+      {/* DEBUG viewport — remove after tablet validation */}
+      {vpInfo && (
+        <div style={{
+          position: 'fixed', top: 2, right: 2, zIndex: 9999,
+          background: 'rgba(0,0,0,0.75)', color: '#0f0', fontSize: 10,
+          padding: '2px 6px', borderRadius: 4, pointerEvents: 'none',
+          fontFamily: 'monospace', whiteSpace: 'nowrap',
+        }}>
+          {vpInfo}
+        </div>
+      )}
 
       {/* Guard modal — blocks sync/lyrics while playing */}
       {guardModal && (
