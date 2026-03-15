@@ -56,12 +56,16 @@ app.use('/api/history', historyRoutes);
 app.use('/api/logs', logsRoutes);
 
 // ── Temporary debug endpoint — receives frontend touch event traces ──
-app.post('/api/debug', (req, res) => {
-  const msgs = req.body;
+app.post('/api/debug', express.text({ type: '*/*' }), (req, res) => {
+  let msgs = req.body;
+  // Handle both JSON-parsed body and raw text
+  if (typeof msgs === 'string') {
+    try { msgs = JSON.parse(msgs); } catch { msgs = [msgs]; }
+  }
   if (Array.isArray(msgs)) {
-    msgs.forEach(m => console.log('\x1b[36m[DBG]\x1b[0m', m));
-  } else if (typeof msgs === 'object' && msgs.msg) {
-    console.log('\x1b[36m[DBG]\x1b[0m', msgs.msg);
+    msgs.forEach(m => console.log('>>> [DBG]', m));
+  } else if (msgs) {
+    console.log('>>> [DBG]', String(msgs));
   }
   res.sendStatus(204);
 });

@@ -108,7 +108,7 @@ export default function MobileQueueDrawer({ open, onClose }) {
                   className={`mobile-drawer-item ${locked ? 'current' : ''}`}
                   data-drag-idx={idx}
                   draggable={!locked && !liveLock}
-                  onDragStart={() => handleDragStart(idx)}
+                  onDragStart={(e) => { if (touchDrag.isTouching()) { e.preventDefault(); return; } handleDragStart(idx); }}
                   onDragOver={(e) => handleDragOver(e, idx)}
                   onDrop={handleDrop}
                   {...(!locked && !liveLock ? touchDrag.rowTouchHandlers(idx) : {})}

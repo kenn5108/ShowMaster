@@ -186,6 +186,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
               onDrop={handleDrop}
               dragRowHandlers={touchDrag.rowTouchHandlers(idx)}
               isDragging={touchDrag.isDragging}
+              isTouching={touchDrag.isTouching}
               onShortPress={() => handleShortPress(item)}
               onLongPress={(e) => handleLongPress(item, e)}
             />
@@ -205,7 +206,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   );
 }
 
-function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, dragRowHandlers, isDragging, onShortPress, onLongPress }) {
+function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, dragRowHandlers, isDragging, isTouching, onShortPress, onLongPress }) {
   const tags = tryParseJson(item.tags, []);
   const { cancel: cancelLongPress, ...pressEvents } = useLongPress(onShortPress, onLongPress);
 
@@ -256,7 +257,7 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
     <tr
       data-drag-idx={idx}
       draggable={canDrag}
-      onDragStart={onDragStart}
+      onDragStart={(e) => { if (isTouching?.()) { e.preventDefault(); return; } onDragStart?.(e); }}
       onDragOver={onDragOver}
       onDrop={onDrop}
       {...mergedHandlers}

@@ -16,6 +16,7 @@ export function useTouchDrag(onMove) {
     armTimer: null, armed: false,
     startX: 0, startY: 0, startIdx: null, startRow: null,
     active: false, fromIdx: null, overIdx: null, fromEl: null, overEl: null,
+    touchInProgress: false, // true between touchStart and touchEnd
   });
 
   // ── Cleanup helper ──
@@ -35,6 +36,7 @@ export function useTouchDrag(onMove) {
       armTimer: null, armed: false,
       startX: 0, startY: 0, startIdx: null, startRow: null,
       active: false, fromIdx: null, overIdx: null, fromEl: null, overEl: null,
+      touchInProgress: false,
     });
     dbgDumpClasses('TD', 'cleanup-after');
   }, []);
@@ -107,6 +109,7 @@ export function useTouchDrag(onMove) {
       const touch = e.touches[0];
       const row = e.currentTarget.closest('[data-drag-idx]');
 
+      s.touchInProgress = true;
       s.startX = touch.clientX;
       s.startY = touch.clientY;
       s.startIdx = idx;
@@ -165,6 +168,7 @@ export function useTouchDrag(onMove) {
         s.armTimer = null;
         s.startIdx = null;
         s.startRow = null;
+        s.touchInProgress = false;
         return;
       }
 
@@ -174,6 +178,7 @@ export function useTouchDrag(onMove) {
         s.armed = false;
         s.startIdx = null;
         s.startRow = null;
+        s.touchInProgress = false;
         dbgDumpClasses('TD', 'touchEnd-armed-noDrag');
         return;
       }
@@ -242,5 +247,8 @@ export function useTouchDrag(onMove) {
     return result;
   }, []);
 
-  return { handleTouchStart, rowTouchHandlers, isDragging };
+  // True between touchStart and touchEnd — used to block HTML5 drag on touch
+  const isTouching = useCallback(() => stateRef.current.touchInProgress, []);
+
+  return { handleTouchStart, rowTouchHandlers, isDragging, isTouching };
 }

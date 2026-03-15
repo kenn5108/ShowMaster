@@ -123,7 +123,7 @@ export default function QueueView() {
                   className={locked ? 'current-song' : ''}
                   data-drag-idx={idx}
                   draggable={!locked && !liveLock}
-                  onDragStart={() => handleDragStart(idx)}
+                  onDragStart={(e) => { if (touchDrag.isTouching()) { e.preventDefault(); return; } handleDragStart(idx); }}
                   onDragOver={(e) => handleDragOver(e, idx)}
                   onDrop={handleDrop}
                   {...(!locked && !liveLock ? touchDrag.rowTouchHandlers(idx) : {})}

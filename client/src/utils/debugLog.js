@@ -2,12 +2,12 @@
  * debugLog — temporary remote logger for touch event tracing.
  *
  * Sends log messages to POST /api/debug so they appear in the Pi terminal.
- * Uses sendBeacon + buffering to avoid blocking touch event handlers.
+ * Uses fetch + buffering (80ms) to avoid blocking touch event handlers.
  *
  * Usage:  import { dbg } from '../utils/debugLog';
  *         dbg('TD', 'touchStart', `idx=${idx} armed=${s.armed}`);
  *
- * Output in terminal:  [DBG] [TD][touchStart] idx=0 armed=false
+ * Output in terminal:  >>> [DBG] 123.4ms [TD][touchStart] idx=0 armed=false
  *
  * Remove this file and all imports when debugging is done.
  */
@@ -20,20 +20,10 @@ function _flush() {
   if (_buffer.length === 0) return;
   const batch = _buffer.splice(0);
   try {
-    // sendBeacon is fire-and-forget, never blocks the main thread
-    const ok = navigator.sendBeacon('/api/debug', new Blob(
-      [JSON.stringify(batch)],
-      { type: 'application/json' }
-    ));
-    // Fallback if sendBeacon fails (e.g. page unloading)
-    if (!ok) {
-      fetch('/api/debug', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(batch),
-        keepalive: true,
-      }).catch(() => {});
-    }
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/debug', true); // async
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.send(JSON.stringify(batch));
   } catch {
     // silently discard on error
   }
@@ -47,10 +37,7 @@ function _flush() {
 export function dbg(prefix, ctx, detail) {
   const ts = performance.now().toFixed(1);
   const msg = `${ts}ms [${prefix}][${ctx}] ${detail}`;
-  // Also keep in browser console for local debugging
-  console.log(msg);
   _buffer.push(msg);
-  // Flush every 80ms — fast enough for real-time, batched enough for perf
   if (!_timer) {
     _timer = setTimeout(_flush, 80);
   }
@@ -58,8 +45,6 @@ export function dbg(prefix, ctx, detail) {
 
 /**
  * Dump remaining CSS drag classes in the DOM.
- * @param {string} prefix
- * @param {string} label
  */
 export function dbgDumpClasses(prefix, label) {
   const armed = document.querySelectorAll('.touch-drag-armed').length;
@@ -72,3 +57,6 @@ export function dbgDumpClasses(prefix, label) {
     dbg(prefix, label, 'CSS in DOM → CLEAN');
   }
 }
+
+// ── Startup confirmation ──
+dbg('SYS', 'init', 'debugLog module loaded — remote logging active');
