@@ -3,34 +3,14 @@ import { useRef, useCallback, useEffect } from 'react';
 /**
  * useTouchDrag — touch-based drag & drop for reorderable lists.
  *
- * Supports TWO modes of activation:
+ * Visual feedback:
+ *  - .touch-drag-armed  → row is ready to be dragged (hold feedback)
+ *  - .touch-dragging     → row is being dragged (source)
+ *  - .touch-drag-over    → insertion line shown BELOW this row
+ *  - .touch-drag-over-above → insertion line shown ABOVE this row (for pos 0)
  *
- * 1. ROW-LEVEL hold-then-drag (new):
- *    - Attach rowTouchHandlers(idx) to each row's onTouchStart / onTouchMove / onTouchEnd
- *    - touchstart starts a 300ms arm timer
- *    - If finger moves > 10px before timer → cancel (allow scroll)
- *    - If timer fires (finger stayed still) → ARM the row:
- *        · adds .touch-drag-armed CSS class (strong visual feedback)
- *        · prevents scroll via preventDefault on subsequent touchmove
- *    - Further finger movement while armed → DRAG (same reorder logic as before)
- *    - touchend without drag → no-op (existing press/context logic proceeds)
- *
- * 2. HANDLE-LEVEL instant drag (legacy, still works):
- *    - handleTouchStart(idx, e) on a drag handle immediately activates drag
- *
- * The 300ms arm delay is shorter than useLongPress's 500ms context menu delay,
- * so there's no conflict: drag arms at 300ms, context menu fires at 500ms.
- * If the finger starts moving between 300ms and 500ms → drag wins.
- * If the finger stays still past 500ms → context menu wins (where it exists).
- *
- * Usage:
- *   const touchDrag = useTouchDrag((fromIdx, toIdx) => { ... });
- *
- *   <div data-drag-idx={idx}
- *        {...touchDrag.rowTouchHandlers(idx)}
- *        ...>
- *
- * HTML5 drag on desktop is NOT affected by this hook.
+ * Drop in empty zone below last item → treated as "move to last position".
+ * Requires the scrollable list container to have: data-drag-list="<itemCount>"
  */
 
 const ARM_DELAY = 300;     // ms before drag is armed
@@ -48,7 +28,7 @@ export function useTouchDrag(onMove) {
     startY: 0,
     startIdx: null,
     startRow: null,
-    // Drag phase (same as before)
+    // Drag phase
     active: false,
     fromIdx: null,
     overIdx: null,
@@ -62,12 +42,75 @@ export function useTouchDrag(onMove) {
     if (s.armTimer) { clearTimeout(s.armTimer); s.armTimer = null; }
     if (s.startRow) s.startRow.classList.remove('touch-drag-armed');
     if (s.fromEl) s.fromEl.classList.remove('touch-dragging');
-    if (s.overEl) s.overEl.classList.remove('touch-drag-over');
+    if (s.overEl) {
+      s.overEl.classList.remove('touch-drag-over');
+      s.overEl.classList.remove('touch-drag-over-above');
+    }
     Object.assign(s, {
       armTimer: null, armed: false,
       startX: 0, startY: 0, startIdx: null, startRow: null,
       active: false, fromIdx: null, overIdx: null, fromEl: null, overEl: null,
     });
+  }, []);
+
+  // ── Update hover target with insertion indicator ──
+  const updateHover = useCallback((touchX, touchY, s) => {
+    const target = document.elementFromPoint(touchX, touchY);
+    const row = target?.closest('[data-drag-idx]');
+
+    // Clear previous hover
+    if (s.overEl) {
+      s.overEl.classList.remove('touch-drag-over');
+      s.overEl.classList.remove('touch-drag-over-above');
+    }
+
+    if (row) {
+      const overIdx = parseInt(row.dataset.dragIdx, 10);
+      if (!isNaN(overIdx)) {
+        // Determine if finger is in upper or lower half of the row
+        const rect = row.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        const insertBefore = touchY < midY;
+
+        // Compute effective insertion index
+        let effectiveIdx;
+        if (insertBefore) {
+          effectiveIdx = overIdx; // insert before this row = take its position
+        } else {
+          effectiveIdx = overIdx + 1; // insert after this row
+        }
+        // Clamp: if effectiveIdx equals fromIdx or fromIdx+1, no real move
+        // (but we still show the indicator for visual continuity)
+
+        s.overIdx = effectiveIdx;
+        s.overEl = row;
+
+        if (effectiveIdx !== s.fromIdx && effectiveIdx !== s.fromIdx + 1) {
+          if (insertBefore) {
+            row.classList.add('touch-drag-over-above');
+          } else {
+            row.classList.add('touch-drag-over');
+          }
+        }
+      }
+    } else {
+      // Not over a row — check if we're in the list container (empty zone below items)
+      const listEl = target?.closest('[data-drag-list]');
+      if (listEl) {
+        const count = parseInt(listEl.dataset.dragList, 10);
+        if (!isNaN(count) && count > 0) {
+          // Find the last row in this list to show indicator on it
+          const lastRow = listEl.querySelector(`[data-drag-idx="${count - 1}"]`);
+          if (lastRow) {
+            s.overIdx = count; // after the last item
+            s.overEl = lastRow;
+            if (s.fromIdx !== count - 1) {
+              lastRow.classList.add('touch-drag-over');
+            }
+          }
+        }
+      }
+    }
   }, []);
 
   // ── Activate drag (shared between row-hold and handle-instant) ──
@@ -88,7 +131,6 @@ export function useTouchDrag(onMove) {
   const rowTouchHandlers = useCallback((idx) => ({
     onTouchStart: (e) => {
       const s = stateRef.current;
-      // Don't interfere if already dragging
       if (s.active || s.armed) return;
 
       const touch = e.touches[0];
@@ -100,7 +142,6 @@ export function useTouchDrag(onMove) {
       s.startRow = row;
       s.armed = false;
 
-      // Start arm timer — do NOT preventDefault here (scroll must work)
       s.armTimer = setTimeout(() => {
         s.armTimer = null;
         s.armed = true;
@@ -117,49 +158,31 @@ export function useTouchDrag(onMove) {
         const dx = touch.clientX - s.startX;
         const dy = touch.clientY - s.startY;
         if (Math.abs(dx) > MOVE_THRESHOLD || Math.abs(dy) > MOVE_THRESHOLD) {
-          // Finger moved too much → cancel arm, allow scroll
           clearTimeout(s.armTimer);
           s.armTimer = null;
           s.startIdx = null;
           s.startRow = null;
         }
-        return; // Let browser handle scroll
+        return;
       }
 
       // Phase 2: armed but drag not yet activated
       if (s.armed && !s.active) {
-        e.preventDefault(); // Prevent scroll — we're taking over
+        e.preventDefault();
         activateDrag(s.startIdx, s.startRow);
-        // Fall through to drag handling below
       }
 
       // Phase 3: active drag
       if (s.active) {
         e.preventDefault();
         const touch = e.touches[0];
-        const target = document.elementFromPoint(touch.clientX, touch.clientY);
-        const row = target?.closest('[data-drag-idx]');
-
-        if (s.overEl && s.overEl !== row) {
-          s.overEl.classList.remove('touch-drag-over');
-        }
-        if (row) {
-          const overIdx = parseInt(row.dataset.dragIdx, 10);
-          if (!isNaN(overIdx)) {
-            s.overIdx = overIdx;
-            s.overEl = row;
-            if (overIdx !== s.fromIdx) {
-              row.classList.add('touch-drag-over');
-            }
-          }
-        }
+        updateHover(touch.clientX, touch.clientY, s);
       }
     },
 
     onTouchEnd: () => {
       const s = stateRef.current;
 
-      // If arm timer still running, cancel it (was a tap — let other handlers deal with it)
       if (s.armTimer) {
         clearTimeout(s.armTimer);
         s.armTimer = null;
@@ -168,7 +191,6 @@ export function useTouchDrag(onMove) {
         return;
       }
 
-      // If armed but never dragged, just cleanup (no-op)
       if (s.armed && !s.active) {
         if (s.startRow) s.startRow.classList.remove('touch-drag-armed');
         s.armed = false;
@@ -177,18 +199,22 @@ export function useTouchDrag(onMove) {
         return;
       }
 
-      // If active drag, finalize
       if (s.active) {
         const { fromIdx, overIdx } = s;
         cleanup();
-        if (fromIdx !== null && overIdx !== null && fromIdx !== overIdx) {
-          onMoveRef.current(fromIdx, overIdx);
+        if (fromIdx !== null && overIdx !== null && fromIdx !== overIdx && overIdx !== fromIdx + 1) {
+          // Convert insertion index to destination index:
+          // If inserting after fromIdx, the source removal shifts indices down by 1
+          const destIdx = overIdx > fromIdx ? overIdx - 1 : overIdx;
+          if (destIdx !== fromIdx) {
+            onMoveRef.current(fromIdx, destIdx);
+          }
         }
       }
     },
-  }), [activateDrag, cleanup]);
+  }), [activateDrag, cleanup, updateHover]);
 
-  // ── Handle-level instant drag (legacy — for the ⠿ handle) ──
+  // ── Handle-level instant drag (legacy) ──
   const handleTouchStart = useCallback((idx, e) => {
     e.stopPropagation();
     e.preventDefault();
@@ -197,33 +223,13 @@ export function useTouchDrag(onMove) {
   }, [activateDrag]);
 
   // ── Global touchmove/touchend for handle-initiated drags ──
-  // (Row-initiated drags use the row's own handlers, but handle-initiated
-  //  drags need document-level listeners since the handle is a small target)
   useEffect(() => {
     const onDocTouchMove = (e) => {
       const s = stateRef.current;
       if (!s.active) return;
-      // Only handle document-level if NOT using row handlers
-      // (row handlers call preventDefault themselves)
       e.preventDefault();
-
       const touch = e.touches[0];
-      const target = document.elementFromPoint(touch.clientX, touch.clientY);
-      const row = target?.closest('[data-drag-idx]');
-
-      if (s.overEl && s.overEl !== row) {
-        s.overEl.classList.remove('touch-drag-over');
-      }
-      if (row) {
-        const overIdx = parseInt(row.dataset.dragIdx, 10);
-        if (!isNaN(overIdx)) {
-          s.overIdx = overIdx;
-          s.overEl = row;
-          if (overIdx !== s.fromIdx) {
-            row.classList.add('touch-drag-over');
-          }
-        }
-      }
+      updateHover(touch.clientX, touch.clientY, s);
     };
 
     const onDocTouchEnd = () => {
@@ -232,8 +238,11 @@ export function useTouchDrag(onMove) {
 
       const { fromIdx, overIdx } = s;
       cleanup();
-      if (fromIdx !== null && overIdx !== null && fromIdx !== overIdx) {
-        onMoveRef.current(fromIdx, overIdx);
+      if (fromIdx !== null && overIdx !== null && fromIdx !== overIdx && overIdx !== fromIdx + 1) {
+        const destIdx = overIdx > fromIdx ? overIdx - 1 : overIdx;
+        if (destIdx !== fromIdx) {
+          onMoveRef.current(fromIdx, destIdx);
+        }
       }
     };
 
@@ -243,7 +252,7 @@ export function useTouchDrag(onMove) {
       document.removeEventListener('touchmove', onDocTouchMove);
       document.removeEventListener('touchend', onDocTouchEnd);
     };
-  }, [cleanup]);
+  }, [cleanup, updateHover]);
 
   return { handleTouchStart, rowTouchHandlers };
 }

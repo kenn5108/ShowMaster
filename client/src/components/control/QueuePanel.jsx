@@ -89,7 +89,7 @@ export default function QueuePanel() {
         )}
       </div>
 
-      <div className="queue-panel-list">
+      <div className="queue-panel-list" data-drag-list={queue.length}>
         {queue.length === 0 ? (
           <div className="queue-panel-empty">
             Ajoutez des morceaux depuis la biblioth&egrave;que

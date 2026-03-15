@@ -91,7 +91,7 @@ export default function MobileQueueDrawer({ open, onClose }) {
         </div>
 
         {/* Queue list */}
-        <div className="mobile-drawer-list" style={syncMode ? { opacity: 0.4, pointerEvents: 'none' } : {}}>
+        <div className="mobile-drawer-list" data-drag-list={queue.length} style={syncMode ? { opacity: 0.4, pointerEvents: 'none' } : {}}>
           {queue.length === 0 ? (
             <div className="mobile-drawer-empty">
               Ajoutez des morceaux depuis la bibliothèque

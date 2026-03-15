@@ -109,7 +109,7 @@ export default function QueueView() {
               <th style={{ width: 80 }}></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody data-drag-list={queue.length}>
             {queue.map((item, idx) => {
               const tags = tryParseJson(item.tags, []);
               const locked = isLocked(item);

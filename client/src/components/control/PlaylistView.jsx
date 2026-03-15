@@ -171,7 +171,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
             <th style={{ width: 70, textAlign: 'right' }}>Durée</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody data-drag-list={filteredItems.length}>
           {filteredItems.map((item, idx) => (
             <PlaylistItemRow
               key={item.id}
