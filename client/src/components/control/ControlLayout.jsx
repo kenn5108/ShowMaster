@@ -200,7 +200,7 @@ export default function ControlLayout() {
           <QueuePanel />
           <div
             className="mini-prompter-wrapper"
-            onClick={() => setPrompterFocus(true)}
+            onClick={() => setPrompterFocus(f => !f)}
             title="Ouvrir le prompteur en mode focus"
           >
             <MiniPrompter />

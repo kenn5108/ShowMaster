@@ -77,10 +77,7 @@ export default function FocusPrompter({ onClose }) {
 
   return (
     <div className="focus-prompter" onClick={onClose}>
-      <div className="focus-prompter-inner" onClick={(e) => e.stopPropagation()}>
-        {/* Close button */}
-        <button className="focus-prompter-close" onClick={onClose} title="Fermer">✕</button>
-
+      <div className="focus-prompter-inner" onClick={onClose}>
         {/* Header */}
         <div className="focus-prompter-header">
           <div className="focus-prompter-title-row">
