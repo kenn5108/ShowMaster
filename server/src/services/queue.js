@@ -100,7 +100,14 @@ function remove(queueItemId) {
 
   const item = db.prepare('SELECT * FROM queue WHERE id = ? AND session_id = ?').get(queueItemId, sessionId);
   if (!item) throw new Error('Queue item not found');
-  if (item.is_current) throw new Error('Cannot remove the current song');
+
+  // Only block removal if the song is actively playing or paused
+  if (item.is_current) {
+    const playerState = getState().rocketshow?.playerState || 'STOPPED';
+    if (playerState === 'PLAYING' || playerState === 'PAUSED') {
+      throw new Error('Cannot remove a song that is currently playing');
+    }
+  }
 
   db.prepare('DELETE FROM queue WHERE id = ?').run(queueItemId);
   reindex(sessionId);

@@ -154,10 +154,10 @@ export default function QueueView() {
                   {...(!locked && !liveLock ? touchDrag.rowTouchHandlers(idx) : {})}
                 >
                   <td>
-                    {!locked && !liveLock && (
-                      <span className="drag-handle">⠿</span>
-                    )}
-                    {locked && <span style={{ color: 'var(--current-song)', fontWeight: 700 }}>▶</span>}
+                    {locked
+                      ? <span style={{ color: 'var(--current-song)', fontWeight: 700 }}>▶</span>
+                      : <span>{idx + 1}</span>
+                    }
                   </td>
                   <td>
                     <div className="song-title">{item.title}</div>
