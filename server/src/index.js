@@ -55,6 +55,17 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/logs', logsRoutes);
 
+// ── Temporary debug endpoint — receives frontend touch event traces ──
+app.post('/api/debug', (req, res) => {
+  const msgs = req.body;
+  if (Array.isArray(msgs)) {
+    msgs.forEach(m => console.log('\x1b[36m[DBG]\x1b[0m', m));
+  } else if (typeof msgs === 'object' && msgs.msg) {
+    console.log('\x1b[36m[DBG]\x1b[0m', msgs.msg);
+  }
+  res.sendStatus(204);
+});
+
 // Full state endpoint
 app.get('/api/state', (req, res) => {
   res.json(getState());

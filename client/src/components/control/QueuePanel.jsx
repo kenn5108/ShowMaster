@@ -3,6 +3,7 @@ import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 import { formatTime, formatDuration } from '../../utils/format';
 import { useTouchDrag } from '../../hooks/useTouchDrag';
+import { dbg } from '../../utils/debugLog';
 import Popup from '../shared/Popup';
 
 /**
@@ -33,13 +34,13 @@ export default function QueuePanel() {
 
   // ── Touch drag (mobile) ──
   const touchDrag = useTouchDrag(useCallback((fromIdx, toIdx) => {
-    console.log(`[QP] onMove callback — fromIdx=${fromIdx} toIdx=${toIdx}`);
+    dbg('QP', 'onMove', `fromIdx=${fromIdx} toIdx=${toIdx}`);
     const item = queue[fromIdx];
-    if (!item || item.is_current === 1) { console.log('[QP] onMove BLOCKED (locked item)'); return; }
-    if (liveLock) { console.log('[QP] onMove BLOCKED (liveLock)'); return; }
+    if (!item || item.is_current === 1) { dbg('QP', 'onMove', 'BLOCKED (locked)'); return; }
+    if (liveLock) { dbg('QP', 'onMove', 'BLOCKED (liveLock)'); return; }
     const safePos = pos0Locked && toIdx === 0 ? 1 : toIdx;
-    if (safePos === fromIdx) { console.log('[QP] onMove SKIP (same position)'); return; }
-    console.log(`[QP] onMove EXECUTING — id=${item.id} → pos=${safePos}`);
+    if (safePos === fromIdx) { dbg('QP', 'onMove', 'SKIP (same pos)'); return; }
+    dbg('QP', 'onMove', `EXEC id=${item.id} → pos=${safePos}`);
     api.post('/queue/move', { queueItemId: item.id, newPosition: safePos }).catch(() => {});
   }, [queue, liveLock, pos0Locked]));
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '../../utils/api';
 import { formatTime } from '../../utils/format';
+import { dbg } from '../../utils/debugLog';
 import { useSocket } from '../../contexts/SocketContext';
 import { useLongPress } from '../../hooks/useLongPress';
 import { useTouchDrag } from '../../hooks/useTouchDrag';
@@ -83,7 +84,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   };
 
   const handleShortPress = (item) => {
-    console.log(`[PL] handleShortPress called — item="${item.title}"`);
+    dbg('PL', 'handleShortPress', `item="${item.title}"`);
     const queue = state.queue || [];
     if (queue.length === 0) {
       api.post('/queue/add', { songId: item.song_id, position: 'bottom' }).catch(() => {});
@@ -99,7 +100,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   };
 
   const handleLongPress = (item, e) => {
-    console.log(`[PL] handleLongPress called — item="${item.title}" eventType=${e.type}`);
+    dbg('PL', 'handleLongPress', `item="${item.title}" eventType=${e.type}`);
     const x = e.touches?.[0]?.clientX || e.clientX || 200;
     const y = e.touches?.[0]?.clientY || e.clientY || 200;
     setContextMenu({
@@ -217,36 +218,36 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
     const origTouchMove = pressEvents.onTouchMove;
     const origTouchEnd = pressEvents.onTouchEnd;
     mergedHandlers.onTouchStart = (e) => {
-      console.log(`[PL][row${idx}] MERGED touchStart — calling LP then TD`);
+      dbg('PL', `row${idx}.touchStart`, 'MERGED — calling LP then TD');
       origTouchStart?.(e);
       dragRowHandlers.onTouchStart?.(e);
     };
     mergedHandlers.onTouchMove = (e) => {
-      console.log(`[PL][row${idx}] MERGED touchMove — calling LP then TD`);
+      dbg('PL', `row${idx}.touchMove`, 'MERGED — calling LP then TD');
       origTouchMove?.(e);
       dragRowHandlers.onTouchMove?.(e);
       const dragging = isDragging?.();
-      console.log(`[PL][row${idx}] MERGED touchMove — isDragging=${dragging}`);
+      dbg('PL', `row${idx}.touchMove`, `isDragging=${dragging}`);
       if (dragging) {
-        console.log(`[PL][row${idx}] MERGED touchMove — CANCELLING longPress`);
+        dbg('PL', `row${idx}.touchMove`, 'CANCELLING longPress');
         cancelLongPress();
       }
     };
     mergedHandlers.onTouchEnd = (e) => {
-      console.log(`[PL][row${idx}] MERGED touchEnd — calling LP then TD`);
+      dbg('PL', `row${idx}.touchEnd`, 'MERGED — calling LP then TD');
       origTouchEnd?.(e);
       dragRowHandlers.onTouchEnd?.(e);
     };
     // Suppress context menu when drag is armed/active
     mergedHandlers.onContextMenu = (e) => {
       const dragging = isDragging?.();
-      console.log(`[PL][row${idx}] MERGED contextMenu — isDragging=${dragging}`);
+      dbg('PL', `row${idx}.contextMenu`, `isDragging=${dragging}`);
       if (dragging) {
-        console.log(`[PL][row${idx}] MERGED contextMenu — SUPPRESSED (drag active)`);
+        dbg('PL', `row${idx}.contextMenu`, 'SUPPRESSED (drag active)');
         e.preventDefault();
         return;
       }
-      console.log(`[PL][row${idx}] MERGED contextMenu — PASSING to LP.onContextMenu`);
+      dbg('PL', `row${idx}.contextMenu`, 'PASSING to LP.onContextMenu');
       pressEvents.onContextMenu?.(e);
     };
   }
