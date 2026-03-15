@@ -1,16 +1,46 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
+import { useTouchDrag } from '../../hooks/useTouchDrag';
+import ContextMenu from '../shared/ContextMenu';
 
 export default function Sidebar({ activeView, activePlaylistId, onNavigate, isOpen }) {
   const { state } = useSocket();
+  const liveLock = state.liveLock;
   const [playlists, setPlaylists] = useState([]);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
 
-  useEffect(() => {
+  // Rename state
+  const [renaming, setRenaming] = useState(null); // playlist id being renamed
+  const [renameValue, setRenameValue] = useState('');
+
+  // Delete confirm state
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // playlist to delete
+
+  // Context menu
+  const [contextMenu, setContextMenu] = useState(null);
+
+  // Touch guard — prevents synthetic click from triggering desktop onClick after touch
+  const touchUsedRef = useRef(false);
+
+  // Refs for HTML5 drag
+  const dragItem = useRef(null);
+  const dragOverItem = useRef(null);
+  const dragFromEl = useRef(null);
+  const dragOverEl = useRef(null);
+
+  // Keep playlists ref stable for touch drag callback
+  const playlistsRef = useRef(playlists);
+  playlistsRef.current = playlists;
+
+  const loadPlaylists = useCallback(() => {
     api.get('/playlists').then(setPlaylists).catch(() => {});
-  }, [activeView]);
+  }, []);
+
+  useEffect(() => {
+    loadPlaylists();
+  }, [activeView, loadPlaylists]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -19,9 +49,114 @@ export default function Sidebar({ activeView, activePlaylistId, onNavigate, isOp
       await api.post('/playlists', { name: newName.trim() });
       setNewName('');
       setCreating(false);
-      const list = await api.get('/playlists');
-      setPlaylists(list);
+      loadPlaylists();
     } catch {}
+  };
+
+  // ── Context menu actions ──
+  const openContextMenu = useCallback((idx, x, y) => {
+    const pl = playlistsRef.current[idx];
+    if (!pl) return;
+    setContextMenu({
+      x, y,
+      items: [
+        { label: 'Renommer', onClick: () => { setRenaming(pl.id); setRenameValue(pl.name); } },
+        { separator: true },
+        { label: 'Supprimer', onClick: () => { setDeleteConfirm(pl); } },
+      ],
+    });
+  }, []);
+
+  // ── Rename ──
+  const handleRename = async (e) => {
+    e.preventDefault();
+    if (!renameValue.trim() || !renaming) return;
+    try {
+      await api.patch(`/playlists/${renaming}`, { name: renameValue.trim() });
+      setRenaming(null);
+      setRenameValue('');
+      loadPlaylists();
+    } catch {}
+  };
+
+  // ── Delete ──
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+    try {
+      await api.delete(`/playlists/${deleteConfirm.id}`);
+      setDeleteConfirm(null);
+      loadPlaylists();
+      // If the deleted playlist was active, navigate to library
+      if (activePlaylistId === deleteConfirm.id) {
+        onNavigate('library');
+      }
+    } catch {}
+  };
+
+  // ── Touch drag (mobile/tablet) ──
+  const touchDrag = useTouchDrag(
+    useCallback((fromIdx, toIdx) => {
+      const pl = playlistsRef.current[fromIdx];
+      if (!pl) return;
+      if (liveLock) return;
+      api.post(`/playlists/${pl.id}/move`, { newPosition: toIdx }).then(setPlaylists).catch(() => {});
+    }, [liveLock]),
+    {
+      onTap: useCallback((idx) => {
+        const pl = playlistsRef.current[idx];
+        if (pl) onNavigate('playlist', { playlistId: pl.id });
+      }, [onNavigate]),
+      onContextMenu: useCallback((idx, x, y) => {
+        if (liveLock) return;
+        openContextMenu(idx, x, y);
+      }, [liveLock, openContextMenu]),
+    }
+  );
+
+  // ── HTML5 drag (desktop) ──
+  const cleanupDragClasses = () => {
+    if (dragFromEl.current) { dragFromEl.current.classList.remove('touch-dragging'); dragFromEl.current = null; }
+    if (dragOverEl.current) { dragOverEl.current.classList.remove('touch-drag-over', 'touch-drag-over-above'); dragOverEl.current = null; }
+  };
+
+  const handleDragStart = (idx, e) => {
+    if (liveLock) { e.preventDefault(); return; }
+    dragItem.current = idx;
+    const row = e.currentTarget;
+    row.classList.add('touch-dragging');
+    dragFromEl.current = row;
+  };
+
+  const handleDragOver = (e, idx) => {
+    e.preventDefault();
+    if (dragItem.current === null) return;
+    dragOverItem.current = idx;
+    if (dragOverEl.current) dragOverEl.current.classList.remove('touch-drag-over', 'touch-drag-over-above');
+    const row = e.currentTarget;
+    const rect = row.getBoundingClientRect();
+    const insertBefore = e.clientY < rect.top + rect.height / 2;
+    const effectiveIdx = insertBefore ? idx : idx + 1;
+    if (effectiveIdx !== dragItem.current && effectiveIdx !== dragItem.current + 1) {
+      row.classList.add(insertBefore ? 'touch-drag-over-above' : 'touch-drag-over');
+    }
+    dragOverEl.current = row;
+  };
+
+  const handleDrop = () => {
+    cleanupDragClasses();
+    if (dragItem.current === null || dragOverItem.current === null) return;
+    if (dragItem.current === dragOverItem.current) { dragItem.current = null; dragOverItem.current = null; return; }
+    const pl = playlists[dragItem.current];
+    if (!pl) { dragItem.current = null; dragOverItem.current = null; return; }
+    api.post(`/playlists/${pl.id}/move`, { newPosition: dragOverItem.current }).then(setPlaylists).catch(() => {});
+    dragItem.current = null;
+    dragOverItem.current = null;
+  };
+
+  const handleDragEnd = () => {
+    cleanupDragClasses();
+    dragItem.current = null;
+    dragOverItem.current = null;
   };
 
   return (
@@ -33,19 +168,19 @@ export default function Sidebar({ activeView, activePlaylistId, onNavigate, isOp
           className={`sidebar-item ${activeView === 'library' ? 'active' : ''}`}
           onClick={() => onNavigate('library')}
         >
-          🎵 Bibliothèque
+          Bibliothèque
         </div>
         <div
           className={`sidebar-item sidebar-item-secondary ${activeView === 'queue' ? 'active' : ''}`}
           onClick={() => onNavigate('queue')}
         >
-          📋 File (vue complète)
+          File (vue complète)
         </div>
         <div
           className={`sidebar-item ${activeView === 'history' ? 'active' : ''}`}
           onClick={() => onNavigate('history')}
         >
-          📖 Historique
+          Historique
         </div>
       </div>
 
@@ -53,7 +188,7 @@ export default function Sidebar({ activeView, activePlaylistId, onNavigate, isOp
       <div className="sidebar-section" style={{ flex: 1 }}>
         <div className="sidebar-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           Playlists
-          {!state.liveLock && (
+          {!liveLock && (
             <button
               className="btn btn-sm btn-secondary"
               onClick={() => setCreating(true)}
@@ -78,15 +213,38 @@ export default function Sidebar({ activeView, activePlaylistId, onNavigate, isOp
           </form>
         )}
 
-        {playlists.map(pl => (
-          <div
-            key={pl.id}
-            className={`sidebar-item ${activeView === 'playlist' && activePlaylistId === pl.id ? 'active' : ''}`}
-            onClick={() => onNavigate('playlist', { playlistId: pl.id })}
-          >
-            🎶 {pl.name}
-          </div>
-        ))}
+        <div data-drag-list={playlists.length}>
+          {playlists.map((pl, idx) => {
+            const handlers = touchDrag.rowTouchHandlers(idx);
+            return (
+              <div
+                key={pl.id}
+                data-drag-idx={idx}
+                draggable={!liveLock}
+                className={`sidebar-item sidebar-playlist-item ${activeView === 'playlist' && activePlaylistId === pl.id ? 'active' : ''}`}
+                onDragStart={(e) => { if (touchDrag.isTouching()) { e.preventDefault(); return; } handleDragStart(idx, e); }}
+                onDragOver={(e) => handleDragOver(e, idx)}
+                onDrop={handleDrop}
+                onDragEnd={handleDragEnd}
+                onTouchStart={(e) => { touchUsedRef.current = true; handlers.onTouchStart?.(e); }}
+                onTouchMove={handlers.onTouchMove}
+                onTouchEnd={(e) => { handlers.onTouchEnd?.(e); setTimeout(() => { touchUsedRef.current = false; }, 400); }}
+                onClick={() => {
+                  if (touchUsedRef.current) return;
+                  onNavigate('playlist', { playlistId: pl.id });
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  if (touchUsedRef.current) return;
+                  if (liveLock) return;
+                  openContextMenu(idx, e.clientX, e.clientY);
+                }}
+              >
+                {pl.name}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Bottom */}
@@ -96,15 +254,63 @@ export default function Sidebar({ activeView, activePlaylistId, onNavigate, isOp
           className={`sidebar-item ${activeView === 'settings' ? 'active' : ''}`}
           onClick={() => onNavigate('settings')}
         >
-          ⚙️ Réglages
+          Réglages
         </div>
         <div
           className={`sidebar-item ${activeView === 'logs' ? 'active' : ''}`}
           onClick={() => onNavigate('logs')}
         >
-          📝 Logs
+          Logs
         </div>
       </div>
+
+      {/* Rename modal */}
+      {renaming && (
+        <div className="popup-overlay" onClick={() => setRenaming(null)}>
+          <div className="popup" onClick={(e) => e.stopPropagation()}>
+            <div className="popup-title">Renommer la playlist</div>
+            <form onSubmit={handleRename}>
+              <input
+                type="text"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                autoFocus
+                style={{ width: '100%', padding: '8px 10px', fontSize: 14, marginBottom: 12, boxSizing: 'border-box' }}
+              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setRenaming(null)}>
+                  Annuler
+                </button>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={!renameValue.trim()}>
+                  Renommer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation */}
+      {deleteConfirm && (
+        <div className="popup-overlay" onClick={() => setDeleteConfirm(null)}>
+          <div className="popup" onClick={(e) => e.stopPropagation()}>
+            <div className="popup-title">Supprimer la playlist</div>
+            <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.5 }}>
+              Supprimer « {deleteConfirm.name} » ? Cette action est irréversible.
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setDeleteConfirm(null)}>
+                Annuler
+              </button>
+              <button className="btn btn-danger" style={{ flex: 1 }} onClick={handleDelete}>
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {contextMenu && <ContextMenu {...contextMenu} onClose={() => setContextMenu(null)} />}
     </nav>
   );
 }

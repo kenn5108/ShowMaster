@@ -2,7 +2,7 @@ const { getDb } = require('../core/database');
 const logger = require('../core/logger');
 
 function getAll() {
-  return getDb().prepare('SELECT * FROM playlists ORDER BY name COLLATE NOCASE').all();
+  return getDb().prepare('SELECT * FROM playlists ORDER BY position ASC, name COLLATE NOCASE').all();
 }
 
 function getById(id) {
@@ -10,8 +10,11 @@ function getById(id) {
 }
 
 function create(name) {
-  const result = getDb().prepare('INSERT INTO playlists (name) VALUES (?)').run(name.trim());
-  logger.info('playlists', `Created playlist "${name}" (#${result.lastInsertRowid})`);
+  const db = getDb();
+  const maxRow = db.prepare('SELECT COALESCE(MAX(position), -1) as p FROM playlists').get();
+  const nextPos = (maxRow?.p ?? -1) + 1;
+  const result = db.prepare('INSERT INTO playlists (name, position) VALUES (?, ?)').run(name.trim(), nextPos);
+  logger.info('playlists', `Created playlist "${name}" (#${result.lastInsertRowid}) at position ${nextPos}`);
   return getById(result.lastInsertRowid);
 }
 
@@ -20,8 +23,34 @@ function rename(id, name) {
 }
 
 function remove(id) {
-  getDb().prepare('DELETE FROM playlists WHERE id = ?').run(id);
+  const db = getDb();
+  const pl = db.prepare('SELECT position FROM playlists WHERE id = ?').get(id);
+  db.prepare('DELETE FROM playlists WHERE id = ?').run(id);
+  if (pl) {
+    // Shift positions down for playlists after the deleted one
+    db.prepare('UPDATE playlists SET position = position - 1 WHERE position > ?').run(pl.position);
+  }
   logger.info('playlists', `Deleted playlist #${id}`);
+}
+
+function movePlaylist(id, newPosition) {
+  const db = getDb();
+  const pl = db.prepare('SELECT * FROM playlists WHERE id = ?').get(id);
+  if (!pl) return;
+
+  const oldPos = pl.position;
+  if (oldPos === newPosition) return;
+
+  if (oldPos < newPosition) {
+    db.prepare('UPDATE playlists SET position = position - 1 WHERE position > ? AND position <= ?')
+      .run(oldPos, newPosition);
+  } else {
+    db.prepare('UPDATE playlists SET position = position + 1 WHERE position >= ? AND position < ?')
+      .run(newPosition, oldPos);
+  }
+
+  db.prepare('UPDATE playlists SET position = ? WHERE id = ?').run(newPosition, id);
+  db.prepare(`UPDATE playlists SET updated_at = datetime('now') WHERE id = ?`).run(id);
 }
 
 // Items
@@ -99,4 +128,4 @@ function reindexPlaylist(playlistId) {
   txn();
 }
 
-module.exports = { getAll, getById, create, rename, remove, getItems, addItem, removeItem, moveItem };
+module.exports = { getAll, getById, create, rename, remove, movePlaylist, getItems, addItem, removeItem, moveItem };

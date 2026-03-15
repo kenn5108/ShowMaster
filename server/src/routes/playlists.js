@@ -42,6 +42,12 @@ router.delete('/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+router.post('/:id/move', (req, res) => {
+  if (checkLock(req, res)) return;
+  playlists.movePlaylist(parseInt(req.params.id), req.body.newPosition);
+  res.json(playlists.getAll());
+});
+
 // Items
 router.get('/:id/items', (req, res) => {
   const { sort = 'position', dir = 'asc' } = req.query;
