@@ -1,25 +1,19 @@
 const { getDb } = require('../core/database');
 
-function recordStart(sessionId, songId) {
-  const existing = getDb().prepare(
-    'SELECT * FROM history WHERE session_id = ? AND song_id = ? AND finished_at IS NULL'
-  ).get(sessionId, songId);
+/**
+ * Record a completed song in history.
+ * Called only after the 30-second threshold has been reached.
+ * Each call creates a new row — no deduplication by song_id.
+ */
+function record(sessionId, songId, startedAt, finishedAt) {
+  const db = getDb();
+  const maxPos = db.prepare(
+    'SELECT COALESCE(MAX(position), -1) as p FROM history WHERE session_id = ?'
+  ).get(sessionId);
 
-  if (!existing) {
-    const maxPos = getDb().prepare(
-      'SELECT COALESCE(MAX(position), -1) as p FROM history WHERE session_id = ?'
-    ).get(sessionId);
-
-    getDb().prepare(
-      'INSERT INTO history (session_id, song_id, position) VALUES (?, ?, ?)'
-    ).run(sessionId, songId, (maxPos?.p ?? -1) + 1);
-  }
-}
-
-function recordEnd(sessionId, songId) {
-  getDb().prepare(
-    `UPDATE history SET finished_at = datetime('now') WHERE session_id = ? AND song_id = ? AND finished_at IS NULL`
-  ).run(sessionId, songId);
+  db.prepare(
+    'INSERT INTO history (session_id, song_id, position, started_at, finished_at) VALUES (?, ?, ?, ?, ?)'
+  ).run(sessionId, songId, (maxPos?.p ?? -1) + 1, startedAt, finishedAt);
 }
 
 function getBySession(sessionId) {
@@ -59,4 +53,4 @@ function clearBySession(sessionId) {
   getDb().prepare('DELETE FROM history WHERE session_id = ?').run(sessionId);
 }
 
-module.exports = { recordStart, recordEnd, getBySession, getBySessionForCsv, getAllForCsv, clearBySession };
+module.exports = { record, getBySession, getBySessionForCsv, getAllForCsv, clearBySession };

@@ -10,6 +10,55 @@ let lastPlayerState = 'STOPPED';
 let lastComposition = null;
 let songEndHandled = false; // guard against repeated onSongEnd calls
 
+// ── History tracking state ──
+// We track *real* playback time, not composition changes.
+// A song is committed to history only after 30s of actual PLAYING.
+const HISTORY_THRESHOLD_MS = 30000;
+let historyTrack = {
+  songId: null,       // song being tracked
+  startedAt: null,    // ISO timestamp when PLAYING first detected
+  playingMs: 0,       // accumulated milliseconds in PLAYING state
+  lastPollTs: null,   // last poll timestamp (for delta calculation)
+  committed: false,   // true once written to DB
+};
+
+function resetHistoryTrack() {
+  historyTrack = {
+    songId: null,
+    startedAt: null,
+    playingMs: 0,
+    lastPollTs: null,
+    committed: false,
+  };
+}
+
+/**
+ * Finalize history tracking for the current song.
+ * If committed (>30s played), write finished_at. If not, discard.
+ */
+function finalizeHistoryTrack() {
+  if (!historyTrack.songId) return;
+
+  const s = getState();
+  const playedSec = Math.round(historyTrack.playingMs / 1000);
+
+  if (historyTrack.committed && s.session && !s.soundcheck) {
+    history.record(
+      s.session.id,
+      historyTrack.songId,
+      historyTrack.startedAt,
+      new Date().toISOString()
+    );
+    logger.info('playback', `[HISTORY] ── Recorded: song #${historyTrack.songId}, ${playedSec}s played`);
+  } else if (historyTrack.committed && s.soundcheck) {
+    logger.info('playback', `[HISTORY] ── Soundcheck active: song #${historyTrack.songId} not recorded (${playedSec}s played)`);
+  } else {
+    logger.info('playback', `[HISTORY] ── Discarded: song #${historyTrack.songId}, only ${playedSec}s (< 30s threshold)`);
+  }
+
+  resetHistoryTrack();
+}
+
 /**
  * PlaybackManager — orchestrates playback between Queue and RocketShow.
  *
@@ -31,6 +80,22 @@ function onPollUpdate() {
   const rs = getState().rocketshow;
   const currentState = rs.playerState;
   const currentComp = rs.currentComposition;
+  const now = Date.now();
+
+  // ── History: accumulate real playing time ──
+  if (currentState === 'PLAYING' && historyTrack.songId && historyTrack.lastPollTs) {
+    const delta = now - historyTrack.lastPollTs;
+    historyTrack.playingMs += delta;
+
+    // Mark as committed once threshold is reached (actual DB write happens at finalization)
+    if (!historyTrack.committed && historyTrack.playingMs >= HISTORY_THRESHOLD_MS) {
+      historyTrack.committed = true;
+      logger.info('playback', `[HISTORY] ── Threshold reached (${Math.round(historyTrack.playingMs / 1000)}s): song #${historyTrack.songId} eligible for history`);
+    }
+  }
+  if (historyTrack.songId) {
+    historyTrack.lastPollTs = now;
+  }
 
   // Detect song end: was PLAYING, now STOPPED — fire only once
   if (lastPlayerState === 'PLAYING' && currentState === 'STOPPED' && !songEndHandled) {
@@ -46,8 +111,28 @@ function onPollUpdate() {
   // Detect song change
   if (currentComp && currentComp !== lastComposition) {
     logger.info('playback', `[POLL] ── RS composition changed: "${lastComposition}" → "${currentComp}"`);
-    onSongStart(currentComp);
+    onSongStart(currentComp, currentState);
     songEndHandled = false; // new song started, allow end detection again
+  }
+
+  // ── History: detect real play start ──
+  // Start tracking when RS transitions to PLAYING and we have a currentSong
+  if (lastPlayerState !== 'PLAYING' && currentState === 'PLAYING' && !getState().playback.syncMode) {
+    const song = getState().playback.currentSong;
+    if (song && historyTrack.songId !== song.id) {
+      // New song started playing — begin tracking
+      finalizeHistoryTrack(); // close any previous track
+      historyTrack.songId = song.id;
+      historyTrack.startedAt = new Date().toISOString();
+      historyTrack.playingMs = 0;
+      historyTrack.lastPollTs = now;
+      historyTrack.committed = false;
+      logger.info('playback', `[HISTORY] ── Tracking started: song #${song.id} "${song.title}"`);
+    } else if (song && historyTrack.songId === song.id) {
+      // Same song resumed (after pause) — just update lastPollTs
+      historyTrack.lastPollTs = now;
+      logger.info('playback', `[HISTORY] ── Resumed tracking: song #${song.id} (${Math.round(historyTrack.playingMs / 1000)}s accumulated)`);
+    }
   }
 
   // Update prompter position
@@ -60,8 +145,8 @@ function onPollUpdate() {
   lastComposition = currentComp;
 }
 
-function onSongStart(compositionName) {
-  // In sync mode, don't update currentSong / history — we're just editing
+function onSongStart(compositionName, playerState) {
+  // In sync mode, don't update currentSong — we're just editing
   if (getState().playback.syncMode) {
     logger.info('playback', `[POLL] ── Sync mode: ignoring onSongStart for "${compositionName}"`);
     return;
@@ -70,12 +155,8 @@ function onSongStart(compositionName) {
   const song = library.getByRsName(compositionName);
   if (song) {
     updateNested('playback', { currentSong: song });
-    // Record in history (unless soundcheck mode)
-    const s = getState();
-    if (s.session && !s.soundcheck) {
-      history.recordStart(s.session.id, song.id);
-    }
-    logger.info('playback', `Now playing: ${song.title} - ${song.artist}${s.soundcheck ? ' [SOUNDCHECK]' : ''}`);
+    logger.info('playback', `Composition loaded: ${song.title} - ${song.artist}`);
+    // NOTE: history is NOT recorded here. It is tracked via PLAYING state detection in onPollUpdate.
   }
 }
 
@@ -86,16 +167,15 @@ function onSongEnd() {
     return;
   }
 
+  // Finalize history for the song that just ended (soundcheck checked inside)
+  finalizeHistoryTrack();
+
   const currentSong = getState().playback.currentSong;
   if (currentSong) {
-    const s = getState();
-    if (s.session && !s.soundcheck) {
-      history.recordEnd(s.session.id, currentSong.id);
-    }
     logger.info('playback', `Song ended: ${currentSong.title}`);
   }
 
-  const mode = getState().playback.mode;
+  const mode = s.playback.mode;
   if (mode === 'auto') {
     advanceToNext();
   } else {
@@ -188,6 +268,9 @@ async function pause() {
 }
 
 async function stop() {
+  // Finalize history before stopping (soundcheck checked inside)
+  finalizeHistoryTrack();
+
   // Set guard BEFORE the await to prevent race with poll cycle
   songEndHandled = true;
   await rocketshow.transport.stop();
@@ -205,9 +288,12 @@ async function next() {
     return;
   }
 
-  const state = getState();
-  const mode = state.playback.mode;
-  const playerState = state.rocketshow.playerState;
+  // Finalize history before advancing (soundcheck checked inside)
+  finalizeHistoryTrack();
+
+  const s = getState();
+  const mode = s.playback.mode;
+  const playerState = s.rocketshow.playerState;
   songEndHandled = true; // set guard BEFORE await to prevent race with poll
 
   if (playerState === 'PLAYING') {
@@ -306,6 +392,9 @@ async function enterSyncMode(songId) {
   const song = library.getById(songId);
   if (!song) throw new Error(`Song #${songId} not found`);
   if (!song.rs_name) throw new Error(`Song #${songId} has no rs_name`);
+
+  // Finalize any ongoing history track before entering sync
+  finalizeHistoryTrack();
 
   logger.info('playback', `[SYNC-ENTER] ── Entering sync mode for song #${songId}: "${song.title}" (rs_name="${song.rs_name}")`);
   await rocketshow.loadComposition(song.rs_name);
