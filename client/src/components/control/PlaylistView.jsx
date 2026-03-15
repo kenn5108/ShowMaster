@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '../../utils/api';
 import { formatTime } from '../../utils/format';
-import { dbg } from '../../utils/debugLog';
 import { useSocket } from '../../contexts/SocketContext';
 import { useLongPress } from '../../hooks/useLongPress';
 import { useTouchDrag } from '../../hooks/useTouchDrag';
@@ -66,7 +65,6 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   const canDrag = sortBy === 'position' && !liveLock;
 
   const handleShortPress = useCallback((item) => {
-    dbg('PL', 'handleShortPress', `item="${item.title}"`);
     const queue = state.queue || [];
     if (queue.length === 0) {
       api.post('/queue/add', { songId: item.song_id, position: 'bottom' }).catch(() => {});
@@ -82,7 +80,6 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   }, [state.queue]);
 
   const handleLongPress = useCallback((item, e) => {
-    dbg('PL', 'handleLongPress', `item="${item.title}"`);
     const x = e?.touches?.[0]?.clientX || e?.clientX || 200;
     const y = e?.touches?.[0]?.clientY || e?.clientY || 200;
     setContextMenu({
@@ -278,22 +275,12 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
         setTimeout(() => { touchUsedRef.current = false; }, 400);
       },
       onClick: (e) => {
-        if (touchUsedRef.current) {
-          dbg('PL', `row${idx}.onClick`, 'SKIP (touchUsed guard)');
-          return;
-        }
-        dbg('PL', `row${idx}.onClick`, 'desktop click → shortPress');
+        if (touchUsedRef.current) return;
         onShortPress?.();
       },
       onContextMenu: (e) => {
         e.preventDefault();
-        // Block native contextmenu fired by Chrome during touch hold —
-        // only allow real desktop right-click through
-        if (touchUsedRef.current) {
-          dbg('PL', `row${idx}.contextMenu`, 'SKIP (touchUsed guard — native touch contextmenu blocked)');
-          return;
-        }
-        dbg('PL', `row${idx}.contextMenu`, 'desktop right-click → longPress');
+        if (touchUsedRef.current) return;
         onLongPress?.(e);
       },
     };
@@ -314,10 +301,7 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
       style={{ cursor: 'pointer' }}
     >
       <td>
-        {canDrag && (
-          <span className="drag-handle">⠿</span>
-        )}
-        {!canDrag && <span style={{ color: 'var(--text-muted)' }}>{idx + 1}</span>}
+        <span style={{ color: 'var(--text-muted)' }}>{idx + 1}</span>
       </td>
       <td>
         <div className="song-title">{item.title}</div>

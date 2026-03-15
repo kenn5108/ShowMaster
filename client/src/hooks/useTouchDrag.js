@@ -1,5 +1,4 @@
 import { useRef, useCallback, useEffect } from 'react';
-import { dbg, dbgDumpClasses } from '../utils/debugLog';
 
 /**
  * useTouchDrag — touch-based drag & drop for reorderable lists.
@@ -25,14 +24,12 @@ export function useTouchDrag(onMove, options = {}) {
     armTimer: null, armed: false,
     startX: 0, startY: 0, startIdx: null, startRow: null,
     active: false, fromIdx: null, overIdx: null, fromEl: null, overEl: null,
-    touchInProgress: false, // true between touchStart and touchEnd
-    listEl: null, // the [data-drag-list] container — scopes updateHover
+    touchInProgress: false,
+    listEl: null,
   });
 
-  // ── Cleanup helper ──
-  // IMPORTANT: deferred passes only remove INDICATOR classes (touch-drag-over*),
-  // never armed/dragging — those belong to whichever drag is currently active
-  // and must not be touched by a stale deferred callback from another instance.
+  // Deferred passes only remove INDICATOR classes (touch-drag-over*),
+  // never armed/dragging — those belong to whichever drag is currently active.
   const removeIndicatorClasses = () => {
     document.querySelectorAll('.touch-drag-over, .touch-drag-over-above')
       .forEach(el => el.classList.remove('touch-drag-over', 'touch-drag-over-above'));
@@ -40,7 +37,6 @@ export function useTouchDrag(onMove, options = {}) {
 
   const cleanup = useCallback(() => {
     const s = stateRef.current;
-    dbg('TD', 'cleanup', `armed=${s.armed} active=${s.active} fromIdx=${s.fromIdx} startIdx=${s.startIdx} startRow=${!!s.startRow} fromEl=${!!s.fromEl}`);
     if (s.armTimer) { clearTimeout(s.armTimer); s.armTimer = null; }
     if (s.startRow) s.startRow.classList.remove('touch-drag-armed');
     if (s.fromEl) s.fromEl.classList.remove('touch-dragging');
@@ -49,10 +45,8 @@ export function useTouchDrag(onMove, options = {}) {
       s.overEl.classList.remove('touch-drag-over-above');
     }
 
-    // Save listEl ref before reset — needed for force-repaint
     const savedListEl = s.listEl;
 
-    // Synchronous pass: remove ALL drag classes from the document
     document.querySelectorAll('.touch-drag-armed, .touch-dragging, .touch-drag-over, .touch-drag-over-above')
       .forEach(el => el.classList.remove('touch-drag-armed', 'touch-dragging', 'touch-drag-over', 'touch-drag-over-above'));
 
@@ -63,28 +57,17 @@ export function useTouchDrag(onMove, options = {}) {
       touchInProgress: false, listEl: null,
     });
 
-    // Force repaint on the list container — Chrome on Android sometimes
-    // keeps stale box-shadow rendering on table cells after class removal.
     if (savedListEl) {
       savedListEl.style.willChange = 'transform';
       // eslint-disable-next-line no-unused-expressions
-      savedListEl.offsetHeight; // force reflow
+      savedListEl.offsetHeight;
       savedListEl.style.willChange = '';
     }
 
-    // Deferred passes: only remove INDICATOR classes (touch-drag-over*).
-    // Never touch armed/dragging — another drag in a different list may
-    // have started by the time these fire.
     requestAnimationFrame(removeIndicatorClasses);
     setTimeout(removeIndicatorClasses, 150);
-
-    dbgDumpClasses('TD', 'cleanup-after');
   }, []);
 
-  // ── Update hover target with insertion indicator ──
-  // Scoped: only matches rows inside s.listEl (the [data-drag-list] container
-  // captured on touchStart) so that dragging in one list never adds classes
-  // to rows in another list.
   const updateHover = useCallback((touchX, touchY, s) => {
     const target = document.elementFromPoint(touchX, touchY);
     const row = target?.closest('[data-drag-idx]');
@@ -94,7 +77,6 @@ export function useTouchDrag(onMove, options = {}) {
       s.overEl.classList.remove('touch-drag-over-above');
     }
 
-    // Only accept rows that belong to the SAME list container
     if (row && s.listEl && s.listEl.contains(row)) {
       const overIdx = parseInt(row.dataset.dragIdx, 10);
       if (!isNaN(overIdx)) {
@@ -109,7 +91,6 @@ export function useTouchDrag(onMove, options = {}) {
         }
       }
     } else if (s.listEl && target && s.listEl.contains(target)) {
-      // Finger is inside the list area but not directly on a row — target last row
       const count = parseInt(s.listEl.dataset.dragList, 10);
       if (!isNaN(count) && count > 0) {
         const lastRow = s.listEl.querySelector(`[data-drag-idx="${count - 1}"]`);
@@ -122,9 +103,7 @@ export function useTouchDrag(onMove, options = {}) {
     }
   }, []);
 
-  // ── Activate drag ──
   const activateDrag = useCallback((idx, row) => {
-    dbg('TD', 'activateDrag', `idx=${idx} row=${!!row}`);
     const s = stateRef.current;
     s.active = true;
     s.fromIdx = idx;
@@ -137,14 +116,11 @@ export function useTouchDrag(onMove, options = {}) {
     }
   }, []);
 
-  // ── Row-level touch handlers (hold-then-drag) ──
   const rowTouchHandlers = useCallback((idx) => ({
     onTouchStart: (e) => {
       const s = stateRef.current;
-      dbg('TD', 'row.touchStart', `idx=${idx} armed=${s.armed} active=${s.active}`);
 
       if (s.active || s.armed) {
-        dbg('TD', 'row.touchStart', 'LINGERING STATE — forcing cleanup');
         cleanup();
       }
 
@@ -162,22 +138,18 @@ export function useTouchDrag(onMove, options = {}) {
       s.armTimer = setTimeout(() => {
         s.armTimer = null;
         s.armed = true;
-        dbg('TD', 'armTimer', `FIRED idx=${idx}`);
         if (row) row.classList.add('touch-drag-armed');
-        dbgDumpClasses('TD', 'armTimer-after');
       }, ARM_DELAY);
     },
 
     onTouchMove: (e) => {
       const s = stateRef.current;
 
-      // Phase 1: still in arming window
       if (s.armTimer) {
         const touch = e.touches[0];
         const dx = touch.clientX - s.startX;
         const dy = touch.clientY - s.startY;
         if (Math.abs(dx) > MOVE_THRESHOLD || Math.abs(dy) > MOVE_THRESHOLD) {
-          dbg('TD', 'row.touchMove', `CANCEL arm (dx=${dx.toFixed(1)} dy=${dy.toFixed(1)})`);
           clearTimeout(s.armTimer);
           s.armTimer = null;
           s.startIdx = null;
@@ -186,14 +158,11 @@ export function useTouchDrag(onMove, options = {}) {
         return;
       }
 
-      // Phase 2: armed → activate drag
       if (s.armed && !s.active) {
-        dbg('TD', 'row.touchMove', `ARMED+MOVED → activateDrag idx=${s.startIdx}`);
         e.preventDefault();
         activateDrag(s.startIdx, s.startRow);
       }
 
-      // Phase 3: active drag
       if (s.active) {
         e.preventDefault();
         const touch = e.touches[0];
@@ -203,40 +172,32 @@ export function useTouchDrag(onMove, options = {}) {
 
     onTouchEnd: () => {
       const s = stateRef.current;
-      dbg('TD', 'row.touchEnd', `armed=${s.armed} active=${s.active} armTimer=${!!s.armTimer} fromIdx=${s.fromIdx} overIdx=${s.overIdx}`);
 
       // Tap: arm timer still pending (< 300ms)
       if (s.armTimer) {
-        dbg('TD', 'row.touchEnd', 'arm pending → TAP');
         clearTimeout(s.armTimer);
         s.armTimer = null;
         const savedIdx = s.startIdx;
         s.startIdx = null;
         s.startRow = null;
         s.touchInProgress = false;
-        // Fire tap callback if provided
         if (onTapRef.current && savedIdx !== null) {
-          dbg('TD', 'row.touchEnd', `calling onTap(${savedIdx})`);
           onTapRef.current(savedIdx);
         }
         return;
       }
 
-      // Armed but no drag → open context menu immediately on release
+      // Armed but no drag → context menu immediately on release
       if (s.armed && !s.active) {
         const savedIdx = s.startIdx;
         const savedX = s.startX;
         const savedY = s.startY;
-        dbg('TD', 'row.touchEnd', `armed+noMove+noDrag → contextMenu idx=${savedIdx}`);
         if (s.startRow) s.startRow.classList.remove('touch-drag-armed');
         s.armed = false;
         s.startIdx = null;
         s.startRow = null;
         s.touchInProgress = false;
-        dbgDumpClasses('TD', 'touchEnd-armed-noDrag');
-        // Fire context menu callback if provided
         if (onContextMenuRef.current && savedIdx !== null) {
-          dbg('TD', 'row.touchEnd', `calling onContextMenu(${savedIdx})`);
           onContextMenuRef.current(savedIdx, savedX, savedY);
         }
         return;
@@ -245,24 +206,16 @@ export function useTouchDrag(onMove, options = {}) {
       // Active drag → finish
       if (s.active) {
         const { fromIdx, overIdx } = s;
-        dbg('TD', 'row.touchEnd', `ACTIVE drag done from=${fromIdx} over=${overIdx}`);
         cleanup();
         if (fromIdx !== null && overIdx !== null && fromIdx !== overIdx && overIdx !== fromIdx + 1) {
           const destIdx = overIdx > fromIdx ? overIdx - 1 : overIdx;
-          dbg('TD', 'row.touchEnd', `MOVE ${fromIdx}→${destIdx}`);
           if (destIdx !== fromIdx) onMoveRef.current(fromIdx, destIdx);
-        } else {
-          dbg('TD', 'row.touchEnd', 'no effective move');
         }
-      } else {
-        dbg('TD', 'row.touchEnd', 'NOT armed NOT active — no-op');
       }
     },
   }), [activateDrag, cleanup, updateHover]);
 
-  // ── Handle-level instant drag (legacy) ──
   const handleTouchStart = useCallback((idx, e) => {
-    dbg('TD', 'handle.touchStart', `idx=${idx}`);
     e.stopPropagation();
     e.preventDefault();
     const row = e.currentTarget.closest('[data-drag-idx]');
@@ -271,18 +224,11 @@ export function useTouchDrag(onMove, options = {}) {
     activateDrag(idx, row);
   }, [activateDrag]);
 
-  // ── Global touchmove/touchend ──
-  // These act as safety nets: the row-level handlers do the primary work,
-  // but if the finger slides outside the row during drag, these ensure
-  // the gesture still completes correctly.
   useEffect(() => {
     const onDocTouchMove = (e) => {
       const s = stateRef.current;
       if (!s.active) return;
       e.preventDefault();
-      // Safety net: updateHover is already called by the row handler,
-      // but this catches cases where the finger moves outside the original element.
-      // Since updateHover is scoped to s.listEl, duplicate calls are harmless.
       const touch = e.touches[0];
       updateHover(touch.clientX, touch.clientY, s);
     };
@@ -290,12 +236,10 @@ export function useTouchDrag(onMove, options = {}) {
     const onDocTouchEnd = () => {
       const s = stateRef.current;
       if (!s.active) return;
-      dbg('TD', 'doc.touchEnd', `from=${s.fromIdx} over=${s.overIdx}`);
       const { fromIdx, overIdx } = s;
       cleanup();
       if (fromIdx !== null && overIdx !== null && fromIdx !== overIdx && overIdx !== fromIdx + 1) {
         const destIdx = overIdx > fromIdx ? overIdx - 1 : overIdx;
-        dbg('TD', 'doc.touchEnd', `MOVE ${fromIdx}→${destIdx}`);
         if (destIdx !== fromIdx) onMoveRef.current(fromIdx, destIdx);
       }
     };
@@ -310,12 +254,9 @@ export function useTouchDrag(onMove, options = {}) {
 
   const isDragging = useCallback(() => {
     const s = stateRef.current;
-    const result = s.active || s.armed;
-    dbg('TD', 'isDragging?', `active=${s.active} armed=${s.armed} → ${result}`);
-    return result;
+    return s.active || s.armed;
   }, []);
 
-  // True between touchStart and touchEnd — used to block HTML5 drag on touch
   const isTouching = useCallback(() => stateRef.current.touchInProgress, []);
 
   return { handleTouchStart, rowTouchHandlers, isDragging, isTouching };

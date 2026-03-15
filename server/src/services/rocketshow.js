@@ -62,18 +62,10 @@ function rsRequest(method, path, body = null) {
  *   "positionMillis": 224378
  * }
  */
-let debugLogCount = 0;
-
 async function poll() {
   try {
     const status = await rsRequest('GET', '/system/state');
     const wasConnected = getState().rocketshow.connected;
-
-    // Debug: log raw JSON on first 5 polls
-    if (debugLogCount < 5 && status) {
-      logger.info('rocketshow', `[DEBUG] Raw RS /api/system/state: ${JSON.stringify(status)}`);
-      debugLogCount++;
-    }
 
     if (!status || typeof status !== 'object') {
       updateNested('rocketshow', { connected: true });

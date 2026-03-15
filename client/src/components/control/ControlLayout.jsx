@@ -66,12 +66,7 @@ export default function ControlLayout() {
       return false;
     };
     const handler = (e) => {
-      const editable = isEditable(e.target);
-      const ts = performance.now().toFixed(1);
-      const msg = `${ts}ms [CL][doc.contextMenu] target=${e.target.tagName} editable=${editable} defaultPrevented=${e.defaultPrevented}`;
-      console.log(msg);
-      try { navigator.sendBeacon('/api/debug', new Blob([JSON.stringify([msg])], { type: 'application/json' })); } catch {}
-      if (!editable) e.preventDefault();
+      if (!isEditable(e.target)) e.preventDefault();
     };
     document.addEventListener('contextmenu', handler, { passive: false });
     return () => document.removeEventListener('contextmenu', handler);

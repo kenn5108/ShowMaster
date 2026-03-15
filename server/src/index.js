@@ -55,21 +55,6 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/logs', logsRoutes);
 
-// ── Temporary debug endpoint — receives frontend touch event traces ──
-app.post('/api/debug', express.text({ type: '*/*' }), (req, res) => {
-  let msgs = req.body;
-  // Handle both JSON-parsed body and raw text
-  if (typeof msgs === 'string') {
-    try { msgs = JSON.parse(msgs); } catch { msgs = [msgs]; }
-  }
-  if (Array.isArray(msgs)) {
-    msgs.forEach(m => console.log('>>> [DBG]', m));
-  } else if (msgs) {
-    console.log('>>> [DBG]', String(msgs));
-  }
-  res.sendStatus(204);
-});
-
 // Full state endpoint
 app.get('/api/state', (req, res) => {
   res.json(getState());
