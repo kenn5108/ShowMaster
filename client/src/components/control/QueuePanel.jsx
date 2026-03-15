@@ -17,6 +17,7 @@ export default function QueuePanel() {
   const { state } = useSocket();
   const queue = state.queue || [];
   const liveLock = state.liveLock;
+  const syncMode = !!state.playback?.syncMode;
   const playerState = state.rocketshow?.playerState || 'STOPPED';
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
@@ -62,9 +63,10 @@ export default function QueuePanel() {
   };
 
   return (
-    <div className="queue-panel">
+    <div className="queue-panel" style={syncMode ? { opacity: 0.4, pointerEvents: 'none' } : {}}>
       <div className="queue-panel-header">
         <span className="queue-panel-title">File d'attente</span>
+        {syncMode && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--warning)', marginLeft: 8 }}>SYNCHRO</span>}
         <span className="queue-panel-count">{queue.length}</span>
         {!liveLock && queue.length > 1 && (
           <button className="queue-panel-clear" onClick={() => api.post('/queue/clear')}>

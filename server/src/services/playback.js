@@ -61,6 +61,12 @@ function onPollUpdate() {
 }
 
 function onSongStart(compositionName) {
+  // In sync mode, don't update currentSong / history — we're just editing
+  if (getState().playback.syncMode) {
+    logger.info('playback', `[POLL] ── Sync mode: ignoring onSongStart for "${compositionName}"`);
+    return;
+  }
+
   const song = library.getByRsName(compositionName);
   if (song) {
     updateNested('playback', { currentSong: song });
@@ -74,6 +80,12 @@ function onSongStart(compositionName) {
 }
 
 function onSongEnd() {
+  // In sync mode, song end = just stop, no queue advance
+  if (getState().playback.syncMode) {
+    logger.info('playback', '[SYNC] ── Song ended during sync mode. No queue advance.');
+    return;
+  }
+
   const currentSong = getState().playback.currentSong;
   if (currentSong) {
     const session = getState().session;
@@ -148,7 +160,22 @@ async function advanceToNext() {
 }
 
 async function play() {
-  const rs = getState().rocketshow;
+  const s = getState();
+  const rs = s.rocketshow;
+
+  // ── Sync mode: just play the already-loaded composition ──
+  if (s.playback.syncMode) {
+    if (rs.playerState === 'PAUSED') {
+      await rocketshow.transport.resume();
+    } else {
+      await rocketshow.transport.play();
+    }
+    songEndHandled = false;
+    logger.info('playback', '[PLAY] ── Sync mode: playing loaded composition.');
+    return;
+  }
+
+  // ── Normal mode ──
   if (rs.playerState === 'PAUSED') {
     await rocketshow.transport.resume();
   } else {
@@ -172,6 +199,12 @@ async function stop() {
 }
 
 async function next() {
+  // ── Sync mode: next is a no-op ──
+  if (getState().playback.syncMode) {
+    logger.info('playback', '[NEXT] ── Sync mode active, ignoring next.');
+    return;
+  }
+
   const state = getState();
   const mode = state.playback.mode;
   const playerState = state.rocketshow.playerState;
@@ -263,18 +296,38 @@ function setMode(mode) {
 }
 
 /**
- * Load a composition for sync editing (bypasses the queue entirely).
- * Looks up the song's rs_name and loads it in RocketShow without playing.
+ * Enter sync mode: load the song's composition and activate sync isolation.
+ * While active, play/pause/stop act on this composition only; queue is bypassed.
  */
-async function loadForSync(songId) {
+async function enterSyncMode(songId) {
   const song = library.getById(songId);
   if (!song) throw new Error(`Song #${songId} not found`);
   if (!song.rs_name) throw new Error(`Song #${songId} has no rs_name`);
 
-  logger.info('playback', `[LOAD-FOR-SYNC] ── Loading "${song.rs_name}" for sync editing (song #${songId}: "${song.title}")`);
+  logger.info('playback', `[SYNC-ENTER] ── Entering sync mode for song #${songId}: "${song.title}" (rs_name="${song.rs_name}")`);
   await rocketshow.loadComposition(song.rs_name);
-  songEndHandled = true; // RS is stopped, don't trigger onSongEnd
-  logger.info('playback', `[LOAD-FOR-SYNC] ── Loaded (not playing): ${song.title}`);
+  songEndHandled = true;
+  updateNested('playback', { syncMode: { songId: song.id, title: song.title, rsName: song.rs_name } });
+  logger.info('playback', `[SYNC-ENTER] ── Sync mode active.`);
 }
 
-module.exports = { init, onPollUpdate, play, pause, stop, next, seek, playQueueItem, playFirst, advanceToNext, setMode, loadForSync };
+/**
+ * Exit sync mode: stop playback if active, clear syncMode flag.
+ * Queue-based playback resumes after this.
+ */
+async function exitSyncMode() {
+  const rs = getState().rocketshow;
+  if (rs.playerState === 'PLAYING' || rs.playerState === 'PAUSED') {
+    songEndHandled = true;
+    await rocketshow.transport.stop();
+  }
+  updateNested('playback', { syncMode: null });
+  logger.info('playback', '[SYNC-EXIT] ── Sync mode deactivated. Normal playback resumed.');
+}
+
+// Keep loadForSync as alias for backward compat (route uses it)
+async function loadForSync(songId) {
+  await enterSyncMode(songId);
+}
+
+module.exports = { init, onPollUpdate, play, pause, stop, next, seek, playQueueItem, playFirst, advanceToNext, setMode, loadForSync, enterSyncMode, exitSyncMode };

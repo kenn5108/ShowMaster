@@ -11,6 +11,8 @@ export default function SyncEditor({ songId, onNavigate }) {
   const [saved, setSaved] = useState(false);
   const [loadError, setLoadError] = useState(null);
 
+  const syncActive = state.playback?.syncMode?.songId === songId;
+
   useEffect(() => {
     if (!songId) return;
     setLoadError(null);
@@ -22,12 +24,16 @@ export default function SyncEditor({ songId, onNavigate }) {
     }).catch(() => {});
     api.get(`/lyrics/${songId}/cues`).then(setCues).catch(() => {});
 
-    // Explicitly load THIS song's composition in RocketShow (bypass queue)
-    // so that Start Sync / tap sync always uses the correct timecode
+    // Enter sync mode: load composition + activate isolation
     api.post('/playback/load-for-sync', { songId })
-      .catch(err => {
+      .catch(() => {
         setLoadError('Impossible de charger la composition dans RocketShow.');
       });
+
+    // Cleanup: exit sync mode when leaving this view
+    return () => {
+      api.post('/playback/exit-sync').catch(() => {});
+    };
   }, [songId]);
 
   const getCueForLine = (lineIndex) => {
@@ -58,6 +64,11 @@ export default function SyncEditor({ songId, onNavigate }) {
     setTimeout(() => setSaved(false), 2000);
   };
 
+  // Navigate away: cleanup runs via useEffect return
+  const handleBack = (view, props) => {
+    onNavigate(view, props);
+  };
+
   if (!songId) {
     return (
       <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
@@ -68,14 +79,22 @@ export default function SyncEditor({ songId, onNavigate }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <h2 style={{ fontSize: 18, flex: 1 }}>
           Synchro — {song?.title || '...'}
         </h2>
+        {syncActive && (
+          <span style={{
+            fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 10,
+            background: 'rgba(245,158,11,0.2)', color: 'var(--warning)',
+          }}>
+            MODE SYNCHRO
+          </span>
+        )}
         <span style={{ fontSize: 13, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
           Position: {formatTimeMMSS(state.rocketshow?.positionMs)}
         </span>
-        <button className="btn btn-sm btn-secondary" onClick={() => onNavigate('lyrics', { songId })}>
+        <button className="btn btn-sm btn-secondary" onClick={() => handleBack('lyrics', { songId })}>
           Éditer paroles
         </button>
         <button className="btn btn-sm btn-primary" onClick={handleSave}>
@@ -91,6 +110,7 @@ export default function SyncEditor({ songId, onNavigate }) {
 
       <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
         Lancez la lecture puis cliquez sur chaque ligne au bon moment pour synchroniser.
+        Les contrôles Play/Pause/Stop agissent sur cette chanson uniquement.
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

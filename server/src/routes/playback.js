@@ -87,6 +87,19 @@ router.post('/load-for-sync', async (req, res) => {
   }
 });
 
+/**
+ * Exit sync mode — stop playback if active, return to normal queue logic.
+ */
+router.post('/exit-sync', async (req, res) => {
+  try {
+    await playback.exitSyncMode();
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error('route:playback', `[POST /exit-sync] error: ${err.message}`);
+    res.status(400).json({ error: err.message });
+  }
+});
+
 router.post('/mode', (req, res) => {
   try {
     playback.setMode(req.body.mode);

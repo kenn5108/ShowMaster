@@ -13,6 +13,7 @@ export default function MobileQueueDrawer({ open, onClose }) {
   const { state } = useSocket();
   const queue = state.queue || [];
   const liveLock = state.liveLock;
+  const syncMode = !!state.playback?.syncMode;
   const playerState = state.rocketshow?.playerState || 'STOPPED';
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
@@ -65,6 +66,7 @@ export default function MobileQueueDrawer({ open, onClose }) {
         {/* Header */}
         <div className="mobile-drawer-header">
           <span className="mobile-drawer-title">File d'attente</span>
+          {syncMode && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--warning)', marginLeft: 8 }}>SYNCHRO</span>}
           <span className="mobile-drawer-count">{queue.length}</span>
           {!liveLock && queue.length > 1 && (
             <button
@@ -78,7 +80,7 @@ export default function MobileQueueDrawer({ open, onClose }) {
         </div>
 
         {/* Queue list */}
-        <div className="mobile-drawer-list">
+        <div className="mobile-drawer-list" style={syncMode ? { opacity: 0.4, pointerEvents: 'none' } : {}}>
           {queue.length === 0 ? (
             <div className="mobile-drawer-empty">
               Ajoutez des morceaux depuis la bibliothèque

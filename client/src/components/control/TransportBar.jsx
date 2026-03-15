@@ -7,6 +7,7 @@ export default function TransportBar() {
   const { state } = useSocket();
   const rs = state.rocketshow || {};
   const playback = state.playback || {};
+  const syncMode = !!playback.syncMode;
   const currentSong = playback.currentSong;
   const isPlaying = rs.playerState === 'PLAYING';
   const isPaused = rs.playerState === 'PAUSED';
@@ -22,7 +23,7 @@ export default function TransportBar() {
 
   const handlePause = () => api.post('/playback/pause').catch(() => {});
   const handleStop = () => api.post('/playback/stop').catch(() => {});
-  const handleNext = () => api.post('/playback/next').catch(() => {});
+  const handleNext = () => { if (!syncMode) api.post('/playback/next').catch(() => {}); };
 
   const handleSeek = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -31,16 +32,21 @@ export default function TransportBar() {
     api.post('/playback/seek', { positionMs: posMs }).catch(() => {});
   };
 
+  // In sync mode, show the sync song title instead of currentSong
+  const displayTitle = syncMode ? playback.syncMode.title : currentSong?.title;
+  const displayArtist = syncMode ? null : currentSong?.artist;
+
   return (
     <div className="transport-bar">
       {/* Now playing info */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        {currentSong ? (
+        {displayTitle ? (
           <>
             <div className="song-title" style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {currentSong.title}
+              {syncMode && <span style={{ color: 'var(--warning)', marginRight: 6 }}>SYNCHRO</span>}
+              {displayTitle}
             </div>
-            <div className="song-artist" style={{ fontSize: 11 }}>{currentSong.artist}</div>
+            {displayArtist && <div className="song-artist" style={{ fontSize: 11 }}>{displayArtist}</div>}
           </>
         ) : (
           <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Aucun morceau</div>
@@ -68,15 +74,20 @@ export default function TransportBar() {
         ) : (
           <button className="btn-transport" onClick={handlePlay} title="Play">▶</button>
         )}
-        <button className="btn-transport" onClick={handleNext} title="Suivant">⏭</button>
+        <button
+          className="btn-transport"
+          onClick={handleNext}
+          title="Suivant"
+          style={syncMode ? { opacity: 0.3, pointerEvents: 'none' } : {}}
+        >⏭</button>
       </div>
 
-      {/* Mode toggle */}
+      {/* Mode toggle — disabled during sync */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontSize: 10 }}>
         <button
           className={`btn btn-sm ${playback.mode === 'auto' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => api.post('/playback/mode', { mode: playback.mode === 'auto' ? 'manual' : 'auto' })}
-          style={{ fontSize: 10, padding: '3px 8px' }}
+          onClick={() => { if (!syncMode) api.post('/playback/mode', { mode: playback.mode === 'auto' ? 'manual' : 'auto' }); }}
+          style={{ fontSize: 10, padding: '3px 8px', ...(syncMode ? { opacity: 0.3, pointerEvents: 'none' } : {}) }}
         >
           {playback.mode === 'auto' ? 'AUTO' : 'MANUEL'}
         </button>

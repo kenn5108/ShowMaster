@@ -24,6 +24,7 @@ const state = {
   playback: {
     mode: 'auto', // 'auto' | 'manual'
     currentSong: null, // { id, title, artist, duration_ms, rs_name, ... }
+    syncMode: null, // null = normal, { songId, title, rsName } = sync editing active
   },
 
   // Live lock

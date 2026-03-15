@@ -17,24 +17,26 @@ export default function MobileTransportBar() {
   const queue = state.queue || [];
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  const syncMode = !!playback.syncMode;
   const isPlaying = rs.playerState === 'PLAYING';
   const isPaused = rs.playerState === 'PAUSED';
   const isActive = isPlaying || isPaused;
   const progress = rs.durationMs > 0 ? (rs.positionMs / rs.durationMs) * 100 : 0;
 
-  // Current song: playing item → queue head → null
+  // Current song: sync title → playing item → queue head → null
   const currentSong = useMemo(() => {
+    if (syncMode) return { title: playback.syncMode.title, artist: null };
     if (playback.currentSong) return playback.currentSong;
     return queue[0] || null;
-  }, [playback.currentSong, queue]);
+  }, [playback.currentSong, playback.syncMode, syncMode, queue]);
 
   const handlePlay = () => api.post('/playback/play').catch(() => {});
   const handlePause = () => api.post('/playback/pause').catch(() => {});
   const handleStop = () => api.post('/playback/stop').catch(() => {});
-  const handleNext = () => api.post('/playback/next').catch(() => {});
-  const toggleMode = () => api.post('/playback/mode', {
+  const handleNext = () => { if (!syncMode) api.post('/playback/next').catch(() => {}); };
+  const toggleMode = () => { if (!syncMode) api.post('/playback/mode', {
     mode: playback.mode === 'auto' ? 'manual' : 'auto'
-  }).catch(() => {});
+  }).catch(() => {}); };
 
   const handleSeek = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -56,8 +58,11 @@ export default function MobileTransportBar() {
           <div className="mobile-transport-song">
             {currentSong ? (
               <>
-                <span className="mobile-transport-title">{currentSong.title}</span>
-                <span className="mobile-transport-artist">{currentSong.artist}</span>
+                <span className="mobile-transport-title">
+                  {syncMode && <span style={{ color: 'var(--warning)', marginRight: 6 }}>SYNCHRO</span>}
+                  {currentSong.title}
+                </span>
+                {currentSong.artist && <span className="mobile-transport-artist">{currentSong.artist}</span>}
               </>
             ) : (
               <span className="mobile-transport-idle">Aucun morceau</span>
@@ -79,6 +84,7 @@ export default function MobileTransportBar() {
           <button
             className={`mobile-transport-mode ${playback.mode === 'auto' ? 'mode-auto' : 'mode-manual'}`}
             onClick={toggleMode}
+            style={syncMode ? { opacity: 0.3, pointerEvents: 'none' } : {}}
           >
             {playback.mode === 'auto' ? 'AUTO' : 'MAN'}
           </button>
@@ -97,7 +103,12 @@ export default function MobileTransportBar() {
             </button>
           )}
 
-          <button className="mobile-transport-btn" onClick={handleNext} title="Suivant">
+          <button
+            className="mobile-transport-btn"
+            onClick={handleNext}
+            title="Suivant"
+            style={syncMode ? { opacity: 0.3, pointerEvents: 'none' } : {}}
+          >
             ⏭
           </button>
 
