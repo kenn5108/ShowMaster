@@ -12,6 +12,7 @@ export default function MiniPrompter() {
   const { state } = useSocket();
   const rs = state.rocketshow || {};
   const queue = state.queue || [];
+  const syncMode = state.playback?.syncMode || null;
   const stageMessage = state.stageMessage || '';
 
   const [lyrics, setLyrics] = useState([]);
@@ -19,14 +20,15 @@ export default function MiniPrompter() {
   const [activeLine, setActiveLine] = useState(-1);
   const lastSongId = useRef(null);
 
-  // Single source: queue head (playing item or first in line)
+  // In sync mode: use the sync song. Otherwise: queue head
   const currentQueueItem = useMemo(() => {
+    if (syncMode) return { song_id: syncMode.songId, title: syncMode.title, artist: syncMode.artist };
     return queue.find(q => q.is_current === 1) || queue[0] || null;
-  }, [queue]);
+  }, [queue, syncMode]);
 
   const currentSongId = currentQueueItem?.song_id || null;
-  const currentIdx = currentQueueItem ? queue.indexOf(currentQueueItem) : -1;
-  const nextSong = currentIdx >= 0 && currentIdx + 1 < queue.length ? queue[currentIdx + 1] : null;
+  const currentIdx = !syncMode && currentQueueItem ? queue.indexOf(currentQueueItem) : -1;
+  const nextSong = !syncMode && currentIdx >= 0 && currentIdx + 1 < queue.length ? queue[currentIdx + 1] : null;
   const isPlaying = rs.playerState === 'PLAYING' || rs.playerState === 'PAUSED';
   const durationMs = isPlaying ? (rs.durationMs || 0) : (currentQueueItem?.duration_ms || rs.durationMs || 0);
   const positionMs = isPlaying ? (rs.positionMs || 0) : 0;
@@ -86,6 +88,7 @@ export default function MiniPrompter() {
     <div className="mini-prompter">
       <div className="mini-prompter-header">
         <span className="mini-prompter-label">Prompteur</span>
+        {syncMode && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--warning)', marginLeft: 6 }}>SYNCHRO</span>}
         {rs.playerState === 'PLAYING' && (
           <span className="mini-prompter-live-dot" />
         )}

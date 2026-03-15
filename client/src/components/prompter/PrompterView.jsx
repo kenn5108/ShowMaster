@@ -7,6 +7,7 @@ export default function PrompterView() {
   const { state } = useSocket();
   const rs = state.rocketshow || {};
   const queue = state.queue || [];
+  const syncMode = state.playback?.syncMode || null;
   const stageMessage = state.stageMessage || '';
 
   const [lyrics, setLyrics] = useState([]);
@@ -15,19 +16,21 @@ export default function PrompterView() {
   const activeRef = useRef(null);
   const lastSongId = useRef(null);
 
-  // Compute current and next song directly from queue (no intermediate state)
-  // Priority: is_current=1 (playing/paused) → queue[0] (prepared state) → null
+  // In sync mode: use the sync song. Otherwise: queue (is_current=1 → queue[0])
   const currentSong = useMemo(() => {
+    if (syncMode) return { song_id: syncMode.songId, title: syncMode.title, artist: syncMode.artist };
     return queue.find(q => q.is_current === 1) || queue[0] || null;
-  }, [queue]);
+  }, [queue, syncMode]);
 
   const currentSongId = currentSong?.song_id || null;
 
+  // No "next" in sync mode
   const nextSong = useMemo(() => {
+    if (syncMode) return null;
     if (!currentSong) return null;
     const idx = queue.indexOf(currentSong);
     return idx >= 0 && idx + 1 < queue.length ? queue[idx + 1] : null;
-  }, [queue, currentSong]);
+  }, [queue, currentSong, syncMode]);
 
   // Load lyrics when the head song changes
   useEffect(() => {
@@ -92,7 +95,8 @@ export default function PrompterView() {
       {/* Header: now playing info */}
       <div className="prompter-header">
         <div className="prompter-now-playing">
-          {currentSong ? `${currentSong.title} — ${currentSong.artist}` : 'En attente...'}
+          {syncMode && <span style={{ color: '#f59e0b', marginRight: 10 }}>SYNCHRO</span>}
+          {currentSong ? `${currentSong.title}${currentSong.artist ? ` — ${currentSong.artist}` : ''}` : 'En attente...'}
         </div>
         {nextSong && (
           <div className="prompter-next">
@@ -102,7 +106,7 @@ export default function PrompterView() {
         <div className="prompter-info">
           {currentSong && (
             <>
-              <span>Position : {queuePosition}/{queue.length}</span>
+              {!syncMode && <span>Position : {queuePosition}/{queue.length}</span>}
               <span>Restant : {formatTimeMMSS(remainingMs)}</span>
               <span>{formatTimeMMSS(positionMs)} / {formatTimeMMSS(durationMs)}</span>
             </>

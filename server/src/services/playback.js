@@ -307,7 +307,7 @@ async function enterSyncMode(songId) {
   logger.info('playback', `[SYNC-ENTER] ── Entering sync mode for song #${songId}: "${song.title}" (rs_name="${song.rs_name}")`);
   await rocketshow.loadComposition(song.rs_name);
   songEndHandled = true;
-  updateNested('playback', { syncMode: { songId: song.id, title: song.title, rsName: song.rs_name } });
+  updateNested('playback', { syncMode: { songId: song.id, title: song.title, artist: song.artist || null, rsName: song.rs_name } });
   logger.info('playback', `[SYNC-ENTER] ── Sync mode active.`);
 }
 
