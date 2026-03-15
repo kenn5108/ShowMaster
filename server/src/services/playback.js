@@ -210,21 +210,24 @@ async function next() {
   const playerState = state.rocketshow.playerState;
   songEndHandled = true; // set guard BEFORE await to prevent race with poll
 
-  if (playerState === 'PLAYING' || playerState === 'PAUSED') {
-    // ── Transport is active: stop first, then branch on mode ──
+  if (playerState === 'PLAYING') {
+    // ── Transport is actively playing: stop first, then branch on mode ──
     await rocketshow.transport.stop();
 
     if (mode === 'auto') {
-      // Auto + active: advance and start playing immediately
+      // Auto + playing: advance and start playing immediately
       await advanceToNext();
     } else {
-      // Manual + active: advance, load next, don't play
+      // Manual + playing: advance, load next, don't play
       await prepareNext();
     }
   } else {
-    // ── Transport is STOPPED: skip = preparatory advance ──
+    // ── Transport is STOPPED or PAUSED: preparatory advance only ──
     // Regardless of mode, just remove head and prepare next without playing.
-    // Auto mode is suspended while STOPPED — autoplay only resumes on Play.
+    // Auto mode only triggers autoplay while actively PLAYING.
+    if (playerState === 'PAUSED') {
+      await rocketshow.transport.stop();
+    }
     await skipWhileStopped();
   }
 }
