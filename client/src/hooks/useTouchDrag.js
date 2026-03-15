@@ -46,6 +46,9 @@ export function useTouchDrag(onMove) {
       s.overEl.classList.remove('touch-drag-over');
       s.overEl.classList.remove('touch-drag-over-above');
     }
+    // Safety: remove any lingering drag classes from DOM (handles stale refs)
+    document.querySelectorAll('.touch-drag-armed, .touch-dragging, .touch-drag-over, .touch-drag-over-above')
+      .forEach(el => el.classList.remove('touch-drag-armed', 'touch-dragging', 'touch-drag-over', 'touch-drag-over-above'));
     Object.assign(s, {
       armTimer: null, armed: false,
       startX: 0, startY: 0, startIdx: null, startRow: null,
@@ -131,7 +134,9 @@ export function useTouchDrag(onMove) {
   const rowTouchHandlers = useCallback((idx) => ({
     onTouchStart: (e) => {
       const s = stateRef.current;
-      if (s.active || s.armed) return;
+      // If previous drag left lingering state (e.g. touchend cancelled by system),
+      // force cleanup so this new touch can proceed
+      if (s.active || s.armed) cleanup();
 
       const touch = e.touches[0];
       const row = e.currentTarget.closest('[data-drag-idx]');
@@ -254,5 +259,11 @@ export function useTouchDrag(onMove) {
     };
   }, [cleanup, updateHover]);
 
-  return { handleTouchStart, rowTouchHandlers };
+  // Expose drag state for coordination with other hooks (e.g. useLongPress)
+  const isDragging = useCallback(() => {
+    const s = stateRef.current;
+    return s.active || s.armed;
+  }, []);
+
+  return { handleTouchStart, rowTouchHandlers, isDragging };
 }

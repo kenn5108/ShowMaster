@@ -182,6 +182,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
               onDragOver={(e) => handleDragOver(e, idx)}
               onDrop={handleDrop}
               dragRowHandlers={touchDrag.rowTouchHandlers(idx)}
+              isDragging={touchDrag.isDragging}
               onShortPress={() => handleShortPress(item)}
               onLongPress={(e) => handleLongPress(item, e)}
             />
@@ -201,20 +202,31 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   );
 }
 
-function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, dragRowHandlers, onShortPress, onLongPress }) {
+function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, dragRowHandlers, isDragging, onShortPress, onLongPress }) {
   const tags = tryParseJson(item.tags, []);
-  const pressHandlers = useLongPress(onShortPress, onLongPress);
+  const { cancel: cancelLongPress, ...pressEvents } = useLongPress(onShortPress, onLongPress);
 
   // Merge touch handlers: both useLongPress and useTouchDrag need touch events.
   // Row-level drag handlers are only active when canDrag is true.
-  const mergedHandlers = { ...pressHandlers };
+  // When drag is armed/active, long press is suppressed to avoid conflict.
+  const mergedHandlers = { ...pressEvents };
   if (canDrag && dragRowHandlers) {
-    const origTouchStart = pressHandlers.onTouchStart;
-    const origTouchMove = pressHandlers.onTouchMove;
-    const origTouchEnd = pressHandlers.onTouchEnd;
+    const origTouchStart = pressEvents.onTouchStart;
+    const origTouchMove = pressEvents.onTouchMove;
+    const origTouchEnd = pressEvents.onTouchEnd;
     mergedHandlers.onTouchStart = (e) => { origTouchStart?.(e); dragRowHandlers.onTouchStart?.(e); };
-    mergedHandlers.onTouchMove = (e) => { origTouchMove?.(e); dragRowHandlers.onTouchMove?.(e); };
+    mergedHandlers.onTouchMove = (e) => {
+      origTouchMove?.(e);
+      dragRowHandlers.onTouchMove?.(e);
+      // If drag just armed/activated, cancel long press timer to prevent conflict
+      if (isDragging?.()) cancelLongPress();
+    };
     mergedHandlers.onTouchEnd = (e) => { origTouchEnd?.(e); dragRowHandlers.onTouchEnd?.(e); };
+    // Suppress context menu when drag is armed/active
+    mergedHandlers.onContextMenu = (e) => {
+      if (isDragging?.()) { e.preventDefault(); return; }
+      pressEvents.onContextMenu?.(e);
+    };
   }
 
   return (

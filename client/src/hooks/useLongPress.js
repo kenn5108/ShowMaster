@@ -85,11 +85,18 @@ export function useLongPress(onShortPress, onLongPress, delay = 500) {
     onLongPress?.(e);
   }, [onLongPress]);
 
+  // External cancel: abort any pending long press (used by drag coordination)
+  const cancel = useCallback(() => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    touchMoved.current = true; // prevent shortPress on touchEnd
+  }, []);
+
   return {
     onClick,
     onTouchStart,
     onTouchEnd,
     onTouchMove,
     onContextMenu,
+    cancel,
   };
 }
