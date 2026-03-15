@@ -308,20 +308,8 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
   transition: transform 0.15s ease, background 0.15s ease;
 }
 .song-table tr.touch-dragging { opacity: 0.5; background: rgba(233,69,96,0.1); }
-.song-table tr.touch-drag-over,
-.song-table tr.touch-drag-over-above { position: relative; }
-.song-table tr.touch-drag-over::after,
-.song-table tr.touch-drag-over-above::after {
-  content: '';
-  position: absolute;
-  left: 0; right: 0;
-  height: 3px;
-  background: var(--accent);
-  pointer-events: none;
-  z-index: 4;
-}
-.song-table tr.touch-drag-over::after { bottom: -1px; }
-.song-table tr.touch-drag-over-above::after { top: -1px; }
+.song-table tr.touch-drag-over > td { box-shadow: 0 3px 0 0 var(--accent); }
+.song-table tr.touch-drag-over-above > td { box-shadow: 0 -3px 0 0 var(--accent); }
 
 .song-title { font-weight: 500; font-size: 14px; }
 .song-artist { color: var(--text-secondary); font-size: 13px; }
