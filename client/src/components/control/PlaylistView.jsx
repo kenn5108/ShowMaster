@@ -301,7 +301,7 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
       style={{ cursor: 'pointer' }}
     >
       <td>
-        <span style={{ color: 'var(--text-muted)' }}>{idx + 1}</span>
+        <span style={{ color: 'var(--text-muted)' }}>{item.position + 1}</span>
       </td>
       <td>
         <div className="song-title">{item.title}</div>
