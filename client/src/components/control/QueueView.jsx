@@ -27,13 +27,17 @@ export default function QueueView() {
   const isLocked = (item) =>
     item.is_current === 1 && (playerState === 'PLAYING' || playerState === 'PAUSED');
 
+  const pos0Locked = queue[0] && isLocked(queue[0]);
+
   // ── Touch drag (mobile) ──
   const touchDrag = useTouchDrag(useCallback((fromIdx, toIdx) => {
     const item = queue[fromIdx];
     if (!item || item.is_current === 1) return;
     if (liveLock) return;
-    api.post('/queue/move', { queueItemId: item.id, newPosition: toIdx }).catch(() => {});
-  }, [queue, liveLock]));
+    const safePos = pos0Locked && toIdx === 0 ? 1 : toIdx;
+    if (safePos === fromIdx) return;
+    api.post('/queue/move', { queueItemId: item.id, newPosition: safePos }).catch(() => {});
+  }, [queue, liveLock, pos0Locked]));
 
   // ── HTML5 drag (desktop) ──
   const handleDragStart = (idx) => {
@@ -55,9 +59,12 @@ export default function QueueView() {
     const item = queue[dragItem.current];
     if (!item || isLocked(item)) return;
 
+    const safePos = pos0Locked && dragOverItem.current === 0 ? 1 : dragOverItem.current;
+    if (safePos === dragItem.current) { dragItem.current = null; dragOverItem.current = null; return; }
+
     api.post('/queue/move', {
       queueItemId: item.id,
-      newPosition: dragOverItem.current,
+      newPosition: safePos,
     }).catch(() => {});
 
     dragItem.current = null;

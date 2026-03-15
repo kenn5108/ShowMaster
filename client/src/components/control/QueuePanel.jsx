@@ -28,13 +28,19 @@ export default function QueuePanel() {
   const isLocked = (item) =>
     item.is_current === 1 && (playerState === 'PLAYING' || playerState === 'PAUSED');
 
+  // Position 0 is protected when the head item is PLAYING or PAUSED
+  const pos0Locked = queue[0] && isLocked(queue[0]);
+
   // ── Touch drag (mobile) ──
   const touchDrag = useTouchDrag(useCallback((fromIdx, toIdx) => {
     const item = queue[fromIdx];
     if (!item || item.is_current === 1) return;
     if (liveLock) return;
-    api.post('/queue/move', { queueItemId: item.id, newPosition: toIdx }).catch(() => {});
-  }, [queue, liveLock]));
+    // Protect position 0: never push a locked head item down
+    const safePos = pos0Locked && toIdx === 0 ? 1 : toIdx;
+    if (safePos === fromIdx) return;
+    api.post('/queue/move', { queueItemId: item.id, newPosition: safePos }).catch(() => {});
+  }, [queue, liveLock, pos0Locked]));
 
   // ── HTML5 drag (desktop) ──
   const handleDragStart = (idx) => {
@@ -54,7 +60,10 @@ export default function QueuePanel() {
     if (liveLock) return;
     const item = queue[dragItem.current];
     if (!item || isLocked(item)) return;
-    api.post('/queue/move', { queueItemId: item.id, newPosition: dragOverItem.current }).catch(() => {});
+    // Protect position 0
+    const safePos = pos0Locked && dragOverItem.current === 0 ? 1 : dragOverItem.current;
+    if (safePos === dragItem.current) { dragItem.current = null; dragOverItem.current = null; return; }
+    api.post('/queue/move', { queueItemId: item.id, newPosition: safePos }).catch(() => {});
     dragItem.current = null;
     dragOverItem.current = null;
   };
@@ -114,8 +123,10 @@ export default function QueuePanel() {
                   <div className="queue-panel-item-artist">{item.artist || ''}</div>
                 </div>
                 <div className="queue-panel-item-duration">{formatTime(item.duration_ms)}</div>
-                {!locked && !liveLock && (
+                {!locked && !liveLock ? (
                   <button className="queue-panel-item-remove" onClick={() => handleRemove(item)}>✕</button>
+                ) : (
+                  <span className="queue-panel-item-remove-spacer" />
                 )}
               </div>
             );

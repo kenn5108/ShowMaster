@@ -191,6 +191,8 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 }
 .queue-panel-item:hover .queue-panel-item-remove { opacity: 1; }
 .queue-panel-item-remove:hover { color: var(--error); }
+/* Invisible spacer — same width as the remove button so duration stays aligned on locked rows */
+.queue-panel-item-remove-spacer { width: 20px; flex-shrink: 0; }
 
 /* ════════════════════════════════════
    MINI PROMPTER (right panel bottom)
@@ -668,6 +670,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
     flex-shrink: 0;
   }
   .mobile-drawer-item-remove:active { color: var(--error); background: rgba(239,68,68,0.15); }
+  .mobile-drawer-item-remove-spacer { width: 32px; flex-shrink: 0; }
 
   /* Touch drag states for drawer items */
   .mobile-drawer-item.touch-drag-armed {
