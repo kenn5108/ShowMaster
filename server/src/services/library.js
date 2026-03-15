@@ -232,19 +232,26 @@ function reassociate(oldSongId, newSongId) {
   if (!newSong) throw new Error('New song not found');
 
   const txn = db.transaction(() => {
-    // Transfer any playlist_items that reference newSong to oldSong
-    // (unlikely but safe: if someone added the new duplicate to a playlist)
+    // 1. Transfer playlist_items from newSong → oldSong
     db.prepare('UPDATE OR IGNORE playlist_items SET song_id = ? WHERE song_id = ?').run(oldSongId, newSongId);
-    // Delete remaining duplicates that couldn't be transferred (OR IGNORE skips unique conflicts)
     db.prepare('DELETE FROM playlist_items WHERE song_id = ?').run(newSongId);
 
-    // Transfer queue entries referencing newSong to oldSong
+    // 2. Transfer queue entries from newSong → oldSong
     db.prepare('UPDATE queue SET song_id = ? WHERE song_id = ?').run(oldSongId, newSongId);
 
-    // Delete the duplicate new song
+    // 3. Transfer history entries from newSong → oldSong
+    db.prepare('UPDATE history SET song_id = ? WHERE song_id = ?').run(oldSongId, newSongId);
+
+    // 4. Merge lyrics: keep oldSong lyrics (ShowMaster data), delete newSong's
+    db.prepare('DELETE FROM lyrics WHERE song_id = ?').run(newSongId);
+
+    // 5. Merge sync_cues: keep oldSong cues (ShowMaster data), delete newSong's
+    db.prepare('DELETE FROM sync_cues WHERE song_id = ?').run(newSongId);
+
+    // 6. Now safe to delete the duplicate (no more FK references)
     db.prepare('DELETE FROM songs WHERE id = ?').run(newSongId);
 
-    // Update the old song with new RS data
+    // 7. Update the old song with new RS data
     db.prepare(`
       UPDATE songs SET
         rs_name = ?,
