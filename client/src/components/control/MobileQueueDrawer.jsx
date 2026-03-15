@@ -1,8 +1,9 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 import { formatTime } from '../../utils/format';
 import { useTouchDrag } from '../../hooks/useTouchDrag';
+import Popup from '../shared/Popup';
 
 /**
  * MobileQueueDrawer — bottom sheet that slides up over the mobile transport bar.
@@ -15,6 +16,7 @@ export default function MobileQueueDrawer({ open, onClose }) {
   const liveLock = state.liveLock;
   const syncMode = !!state.playback?.syncMode;
   const playerState = state.rocketshow?.playerState || 'STOPPED';
+  const [confirmClear, setConfirmClear] = useState(false);
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
 
@@ -71,7 +73,7 @@ export default function MobileQueueDrawer({ open, onClose }) {
           {!liveLock && queue.length > 1 && (
             <button
               className="mobile-drawer-clear"
-              onClick={() => api.post('/queue/clear')}
+              onClick={() => setConfirmClear(true)}
             >
               Vider
             </button>
@@ -125,6 +127,14 @@ export default function MobileQueueDrawer({ open, onClose }) {
           )}
         </div>
       </div>
+
+      {confirmClear && (
+        <Popup
+          title="Voulez-vous vraiment vider la file d'attente ?"
+          actions={[{ label: 'Vider', onClick: () => api.post('/queue/clear') }]}
+          onClose={() => setConfirmClear(false)}
+        />
+      )}
     </>
   );
 }

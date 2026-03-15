@@ -1,8 +1,9 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 import { formatTime } from '../../utils/format';
 import { useTouchDrag } from '../../hooks/useTouchDrag';
+import Popup from '../shared/Popup';
 
 /**
  * QueuePanel — compact queue always visible in the right panel.
@@ -19,6 +20,7 @@ export default function QueuePanel() {
   const liveLock = state.liveLock;
   const syncMode = !!state.playback?.syncMode;
   const playerState = state.rocketshow?.playerState || 'STOPPED';
+  const [confirmClear, setConfirmClear] = useState(false);
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
 
@@ -69,7 +71,7 @@ export default function QueuePanel() {
         {syncMode && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--warning)', marginLeft: 8 }}>SYNCHRO</span>}
         <span className="queue-panel-count">{queue.length}</span>
         {!liveLock && queue.length > 1 && (
-          <button className="queue-panel-clear" onClick={() => api.post('/queue/clear')}>
+          <button className="queue-panel-clear" onClick={() => setConfirmClear(true)}>
             Vider
           </button>
         )}
@@ -119,6 +121,14 @@ export default function QueuePanel() {
           })
         )}
       </div>
+
+      {confirmClear && (
+        <Popup
+          title="Voulez-vous vraiment vider la file d'attente ?"
+          actions={[{ label: 'Vider', onClick: () => api.post('/queue/clear') }]}
+          onClose={() => setConfirmClear(false)}
+        />
+      )}
     </div>
   );
 }

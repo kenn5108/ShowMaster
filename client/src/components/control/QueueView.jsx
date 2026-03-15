@@ -1,8 +1,9 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 import { formatTime } from '../../utils/format';
 import { useTouchDrag } from '../../hooks/useTouchDrag';
+import Popup from '../shared/Popup';
 
 /**
  * QueueView — full-page queue view.
@@ -18,6 +19,7 @@ export default function QueueView() {
   const queue = state.queue || [];
   const liveLock = state.liveLock;
   const playerState = state.rocketshow?.playerState || 'STOPPED';
+  const [confirmClear, setConfirmClear] = useState(false);
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
 
@@ -72,7 +74,7 @@ export default function QueueView() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <h2 style={{ fontSize: 18, flex: 1 }}>File d'attente</h2>
         {!liveLock && queue.length > 0 && (
-          <button className="btn btn-sm btn-secondary" onClick={() => api.post('/queue/clear')}>
+          <button className="btn btn-sm btn-secondary" onClick={() => setConfirmClear(true)}>
             Vider la file
           </button>
         )}
@@ -146,6 +148,13 @@ export default function QueueView() {
             })}
           </tbody>
         </table>
+      )}
+      {confirmClear && (
+        <Popup
+          title="Voulez-vous vraiment vider la file d'attente ?"
+          actions={[{ label: 'Vider', onClick: () => api.post('/queue/clear') }]}
+          onClose={() => setConfirmClear(false)}
+        />
       )}
     </div>
   );
