@@ -60,12 +60,6 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 .header-venue { font-size: 12px; color: var(--text-muted); margin-right: auto; }
 .header-status { display: flex; align-items: center; gap: 6px; }
 .sidebar-toggle { width: 36px; height: 36px; font-size: 20px; display: none; }
-.right-panel-toggle { position: relative; width: 36px; height: 36px; font-size: 18px; display: none; }
-.right-panel-toggle-badge {
-  position: absolute; top: 2px; right: 2px; background: var(--accent); color: white;
-  font-size: 9px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px;
-  display: flex; align-items: center; justify-content: center; line-height: 1;
-}
 .right-panel-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.5); z-index: 17;
@@ -392,7 +386,6 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 
 @media (max-width: 768px) {
   .sidebar-toggle { display: flex; }
-  .right-panel-toggle { display: flex; }
 
   .sidebar {
     position: fixed; left: 0; top: var(--header-height);
@@ -473,9 +466,9 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
     gap: 12px; padding-top: 2px;
   }
 
-  /* Transport buttons — big for touch */
+  /* Transport buttons — harmonized with desktop btn-transport */
   .mobile-transport-btn {
-    width: 48px; height: 48px; border-radius: 50%;
+    width: 44px; height: 44px; border-radius: 50%;
     background: var(--bg-card); color: var(--text-primary);
     display: flex; align-items: center; justify-content: center;
     font-size: 20px; border: none; cursor: pointer;
@@ -484,9 +477,9 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
   }
   .mobile-transport-btn:active { background: var(--accent); }
 
-  /* Main play/pause button — larger & accent */
+  /* Main play/pause button — larger, accent fill like desktop .btn-transport.active */
   .mobile-transport-btn-main {
-    width: 56px; height: 56px; font-size: 24px;
+    width: 52px; height: 52px; font-size: 22px;
     background: var(--accent); color: white;
   }
   .mobile-transport-btn-main:active { background: var(--accent-hover); }

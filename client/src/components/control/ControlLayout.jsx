@@ -52,7 +52,6 @@ export default function ControlLayout() {
   };
 
   const ViewComponent = VIEWS[activeView] || LibraryView;
-  const queueCount = state.queue?.length || 0;
 
   return (
     <div className="app-layout">
@@ -73,14 +72,6 @@ export default function ControlLayout() {
                 title={connected ? 'WebSocket connecté' : 'WebSocket déconnecté'} />
           {state.liveLock && <span className="lock-badge locked">LIVE</span>}
         </div>
-        {/* Mobile right-panel toggle */}
-        <button
-          className="btn-icon right-panel-toggle"
-          onClick={() => setRightPanelOpen(!rightPanelOpen)}
-        >
-          <span>📋</span>
-          {queueCount > 0 && <span className="right-panel-toggle-badge">{queueCount}</span>}
-        </button>
       </header>
 
       {/* Body: sidebar + center + right panel */}
