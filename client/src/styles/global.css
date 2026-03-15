@@ -278,6 +278,9 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 .btn-secondary:hover { background: rgba(255,255,255,0.1); }
 .btn-danger { background: #c0392b; color: white; }
 .btn-danger:hover { background: #e74c3c; }
+.btn-soundcheck-active { background: #e67e22; color: white; animation: soundcheck-pulse 2s ease-in-out infinite; }
+.btn-soundcheck-active:hover { background: #f39c12; }
+@keyframes soundcheck-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
 .btn-sm { padding: 4px 10px; font-size: 12px; }
 .btn-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 18px; }
 .btn-icon:hover { background: rgba(255,255,255,0.1); }

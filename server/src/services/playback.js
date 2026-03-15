@@ -70,12 +70,12 @@ function onSongStart(compositionName) {
   const song = library.getByRsName(compositionName);
   if (song) {
     updateNested('playback', { currentSong: song });
-    // Record in history
-    const session = getState().session;
-    if (session) {
-      history.recordStart(session.id, song.id);
+    // Record in history (unless soundcheck mode)
+    const s = getState();
+    if (s.session && !s.soundcheck) {
+      history.recordStart(s.session.id, song.id);
     }
-    logger.info('playback', `Now playing: ${song.title} - ${song.artist}`);
+    logger.info('playback', `Now playing: ${song.title} - ${song.artist}${s.soundcheck ? ' [SOUNDCHECK]' : ''}`);
   }
 }
 
@@ -88,9 +88,9 @@ function onSongEnd() {
 
   const currentSong = getState().playback.currentSong;
   if (currentSong) {
-    const session = getState().session;
-    if (session) {
-      history.recordEnd(session.id, currentSong.id);
+    const s = getState();
+    if (s.session && !s.soundcheck) {
+      history.recordEnd(s.session.id, currentSong.id);
     }
     logger.info('playback', `Song ended: ${currentSong.title}`);
   }

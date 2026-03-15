@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
+import { api } from '../../utils/api';
 import Sidebar from './Sidebar';
 import LibraryView from './LibraryView';
 import PlaylistView from './PlaylistView';
@@ -182,6 +183,14 @@ export default function ControlLayout() {
           <span className={`connection-dot ${connected ? 'connected' : 'disconnected'}`}
                 title={connected ? 'WebSocket connecté' : 'WebSocket déconnecté'} />
           {state.liveLock && <span className="lock-badge locked">LIVE</span>}
+          <button
+            className={`btn btn-sm ${state.soundcheck ? 'btn-soundcheck-active' : 'btn-secondary'}`}
+            onClick={() => api.post('/playback/soundcheck', { enabled: !state.soundcheck }).catch(() => {})}
+            title={state.soundcheck ? 'Désactiver le soundcheck' : 'Activer le soundcheck (pas d\'historique)'}
+            style={{ fontSize: 11, padding: '2px 8px' }}
+          >
+            {state.soundcheck ? 'SOUNDCHECK' : 'Soundcheck'}
+          </button>
           <button
             className="btn-icon fullscreen-toggle"
             onClick={toggleFullscreen}

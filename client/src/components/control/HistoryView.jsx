@@ -62,6 +62,16 @@ export default function HistoryView() {
               </span>
             )}
           </h2>
+          {history.length > 0 && (
+            <a
+              className="btn btn-sm btn-secondary"
+              href={`/api/history/csv/${selectedSession.id}`}
+              download
+              style={{ textDecoration: 'none' }}
+            >
+              CSV
+            </a>
+          )}
         </div>
 
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
@@ -120,7 +130,19 @@ export default function HistoryView() {
   // ── Session list view ──
   return (
     <div>
-      <h2 style={{ fontSize: 18, marginBottom: 16 }}>Historique</h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <h2 style={{ fontSize: 18, flex: 1, margin: 0 }}>Historique</h2>
+        {sessions.length > 0 && (
+          <a
+            className="btn btn-sm btn-secondary"
+            href="/api/history/csv/all"
+            download
+            style={{ textDecoration: 'none' }}
+          >
+            Tout exporter CSV
+          </a>
+        )}
+      </div>
 
       {sessions.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>

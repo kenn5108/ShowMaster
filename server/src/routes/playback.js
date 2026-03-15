@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const playback = require('../services/playback');
-const { getState } = require('../core/state');
+const { getState, updateState } = require('../core/state');
 const logger = require('../core/logger');
 
 const router = Router();
@@ -98,6 +98,14 @@ router.post('/exit-sync', async (req, res) => {
     logger.error('route:playback', `[POST /exit-sync] error: ${err.message}`);
     res.status(400).json({ error: err.message });
   }
+});
+
+router.post('/soundcheck', (req, res) => {
+  const { enabled } = req.body;
+  updateState({ soundcheck: !!enabled });
+  req.app.get('io').emit('state:update', { soundcheck: getState().soundcheck });
+  logger.info('playback', `Soundcheck mode: ${enabled ? 'ON' : 'OFF'}`);
+  res.json({ ok: true, soundcheck: getState().soundcheck });
 });
 
 router.post('/mode', (req, res) => {

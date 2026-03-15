@@ -30,6 +30,9 @@ const state = {
   // Live lock
   liveLock: false,
 
+  // Soundcheck mode — when active, history recording is bypassed
+  soundcheck: false,
+
   // Stage message (prompter)
   stageMessage: '',
 
