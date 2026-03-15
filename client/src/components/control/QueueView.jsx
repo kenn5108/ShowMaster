@@ -23,6 +23,8 @@ export default function QueueView() {
   const [confirmClear, setConfirmClear] = useState(false);
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
+  const dragFromEl = useRef(null);
+  const dragOverEl = useRef(null);
 
   // Only locked when actually playing or paused — not just "next in line"
   const isLocked = (item) =>
@@ -43,18 +45,37 @@ export default function QueueView() {
   }, [queue, liveLock, pos0Locked]));
 
   // ── HTML5 drag (desktop) ──
-  const handleDragStart = (idx) => {
+  const cleanupDragClasses = () => {
+    if (dragFromEl.current) { dragFromEl.current.classList.remove('touch-dragging'); dragFromEl.current = null; }
+    if (dragOverEl.current) { dragOverEl.current.classList.remove('touch-drag-over', 'touch-drag-over-above'); dragOverEl.current = null; }
+  };
+
+  const handleDragStart = (idx, e) => {
     const item = queue[idx];
     if (!item || isLocked(item)) return;
     dragItem.current = idx;
+    const row = e.currentTarget;
+    row.classList.add('touch-dragging');
+    dragFromEl.current = row;
   };
 
   const handleDragOver = (e, idx) => {
     e.preventDefault();
+    if (dragItem.current === null) return;
     dragOverItem.current = idx;
+    if (dragOverEl.current) dragOverEl.current.classList.remove('touch-drag-over', 'touch-drag-over-above');
+    const row = e.currentTarget;
+    const rect = row.getBoundingClientRect();
+    const insertBefore = e.clientY < rect.top + rect.height / 2;
+    const effectiveIdx = insertBefore ? idx : idx + 1;
+    if (effectiveIdx !== dragItem.current && effectiveIdx !== dragItem.current + 1) {
+      row.classList.add(insertBefore ? 'touch-drag-over-above' : 'touch-drag-over');
+    }
+    dragOverEl.current = row;
   };
 
   const handleDrop = () => {
+    cleanupDragClasses();
     if (dragItem.current === null || dragOverItem.current === null) return;
     if (dragItem.current === dragOverItem.current) return;
     if (liveLock) return;
@@ -70,6 +91,12 @@ export default function QueueView() {
       newPosition: safePos,
     }).catch(() => {});
 
+    dragItem.current = null;
+    dragOverItem.current = null;
+  };
+
+  const handleDragEnd = () => {
+    cleanupDragClasses();
     dragItem.current = null;
     dragOverItem.current = null;
   };
@@ -123,9 +150,10 @@ export default function QueueView() {
                   className={locked ? 'current-song' : ''}
                   data-drag-idx={idx}
                   draggable={!locked && !liveLock}
-                  onDragStart={(e) => { if (touchDrag.isTouching()) { e.preventDefault(); return; } handleDragStart(idx); }}
+                  onDragStart={(e) => { if (touchDrag.isTouching()) { e.preventDefault(); return; } handleDragStart(idx, e); }}
                   onDragOver={(e) => handleDragOver(e, idx)}
                   onDrop={handleDrop}
+                  onDragEnd={handleDragEnd}
                   {...(!locked && !liveLock ? touchDrag.rowTouchHandlers(idx) : {})}
                 >
                   <td>

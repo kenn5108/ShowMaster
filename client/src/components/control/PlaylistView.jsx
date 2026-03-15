@@ -22,6 +22,8 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   const liveLock = state.liveLock;
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
+  const dragFromEl = useRef(null);
+  const dragOverEl = useRef(null);
 
   // Stable refs for callbacks used by useTouchDrag options
   const itemsRef = useRef(items);
@@ -116,9 +118,33 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   );
 
   // ── HTML5 drag (desktop) ──
-  const handleDragStart = (idx) => { dragItem.current = idx; };
-  const handleDragOver = (e, idx) => { e.preventDefault(); dragOverItem.current = idx; };
+  const cleanupDragClasses = () => {
+    if (dragFromEl.current) { dragFromEl.current.classList.remove('touch-dragging'); dragFromEl.current = null; }
+    if (dragOverEl.current) { dragOverEl.current.classList.remove('touch-drag-over', 'touch-drag-over-above'); dragOverEl.current = null; }
+  };
+
+  const handleDragStart = (idx, e) => {
+    dragItem.current = idx;
+    const row = e.currentTarget;
+    row.classList.add('touch-dragging');
+    dragFromEl.current = row;
+  };
+  const handleDragOver = (e, idx) => {
+    e.preventDefault();
+    if (dragItem.current === null) return;
+    dragOverItem.current = idx;
+    if (dragOverEl.current) dragOverEl.current.classList.remove('touch-drag-over', 'touch-drag-over-above');
+    const row = e.currentTarget;
+    const rect = row.getBoundingClientRect();
+    const insertBefore = e.clientY < rect.top + rect.height / 2;
+    const effectiveIdx = insertBefore ? idx : idx + 1;
+    if (effectiveIdx !== dragItem.current && effectiveIdx !== dragItem.current + 1) {
+      row.classList.add(insertBefore ? 'touch-drag-over-above' : 'touch-drag-over');
+    }
+    dragOverEl.current = row;
+  };
   const handleDrop = () => {
+    cleanupDragClasses();
     if (dragItem.current === null || dragOverItem.current === null) return;
     if (dragItem.current === dragOverItem.current) return;
     const item = items[dragItem.current];
@@ -126,6 +152,11 @@ export default function PlaylistView({ playlistId, onNavigate }) {
     api.post(`/playlists/${playlistId}/items/${item.id}/move`, {
       newPosition: dragOverItem.current,
     }).then(loadItems).catch(() => {});
+    dragItem.current = null;
+    dragOverItem.current = null;
+  };
+  const handleDragEnd = () => {
+    cleanupDragClasses();
     dragItem.current = null;
     dragOverItem.current = null;
   };
@@ -197,9 +228,10 @@ export default function PlaylistView({ playlistId, onNavigate }) {
               item={item}
               idx={idx}
               canDrag={effectiveCanDrag}
-              onDragStart={() => handleDragStart(idx)}
+              onDragStart={(e) => handleDragStart(idx, e)}
               onDragOver={(e) => handleDragOver(e, idx)}
               onDrop={handleDrop}
+              onDragEnd={handleDragEnd}
               dragRowHandlers={touchDrag.rowTouchHandlers(idx)}
               isTouching={touchDrag.isTouching}
               onShortPress={() => handleShortPress(item)}
@@ -221,7 +253,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   );
 }
 
-function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, dragRowHandlers, isTouching, onShortPress, onLongPress }) {
+function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, onDragEnd, dragRowHandlers, isTouching, onShortPress, onLongPress }) {
   const tags = tryParseJson(item.tags, []);
   const touchUsedRef = useRef(false);
 
@@ -277,6 +309,7 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
       onDragStart={(e) => { if (isTouching?.()) { e.preventDefault(); return; } onDragStart?.(e); }}
       onDragOver={onDragOver}
       onDrop={onDrop}
+      onDragEnd={onDragEnd}
       {...rowEvents}
       style={{ cursor: 'pointer' }}
     >
