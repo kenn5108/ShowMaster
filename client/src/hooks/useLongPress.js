@@ -5,14 +5,11 @@ import { useCallback, useRef } from 'react';
  *
  * Returns event handlers for BOTH desktop (onClick, onContextMenu)
  * and mobile (onTouchStart, onTouchEnd, onTouchMove, onContextMenu).
- *
- * Fixes:
- *  - Prevents double-fire on mobile (touch + click both fire)
- *  - Clears text selection before opening long-press menu
- *  - Tracks touchMove to prevent short press after finger movement (scroll)
- *  - Text selection prevention is via CSS (user-select: none on rows),
- *    NOT via preventDefault on touchStart (which would kill scrolling)
  */
+
+// ── TRACE HELPER ──
+const _lp = (ctx, ...args) => console.log(`[LP][${ctx}]`, ...args);
+
 export function useLongPress(onShortPress, onLongPress, delay = 500) {
   const timerRef = useRef(null);
   const isLongPress = useRef(false);
@@ -22,40 +19,40 @@ export function useLongPress(onShortPress, onLongPress, delay = 500) {
   // ── Touch events (mobile) ──
 
   const onTouchStart = useCallback((e) => {
+    _lp('touchStart', `delay=${delay} setting timer`);
     touchUsed.current = true;
     isLongPress.current = false;
     touchMoved.current = false;
     timerRef.current = setTimeout(() => {
+      _lp('timer', `FIRED after ${delay}ms — calling onLongPress`);
       isLongPress.current = true;
-      // Clear any accidental text selection before showing context menu
       window.getSelection()?.removeAllRanges();
       onLongPress?.(e);
     }, delay);
   }, [onLongPress, delay]);
 
   const onTouchEnd = useCallback((e) => {
+    _lp('touchEnd', `isLongPress=${isLongPress.current} touchMoved=${touchMoved.current} timerPending=${!!timerRef.current}`);
     if (timerRef.current) {
+      _lp('touchEnd', 'clearing pending timer');
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-    // Only fire short press if: not a long press AND finger didn't move
     if (!isLongPress.current && !touchMoved.current) {
-      // Prevent the browser from synthesising a 'click' event after touchEnd.
-      // Without this the synthetic click can land on the popup overlay and
-      // immediately trigger onClose, making the popup flash then disappear.
+      _lp('touchEnd', 'NOT longPress, NOT moved → firing shortPress + preventDefault');
       e.preventDefault();
       onShortPress?.(e);
+    } else {
+      _lp('touchEnd', `SKIP shortPress (isLongPress=${isLongPress.current} touchMoved=${touchMoved.current})`);
     }
-    // Reset touchUsed after a delay longer than the browser's synthetic-click
-    // window (~300 ms) so the onClick guard stays active as a safety net.
     setTimeout(() => { touchUsed.current = false; }, 400);
   }, [onShortPress]);
 
   const onTouchMove = useCallback(() => {
-    // Finger moved — cancel long press timer AND mark as moved
-    // so touchEnd won't fire shortPress (prevents tap-after-scroll)
+    _lp('touchMove', `touchMoved was ${touchMoved.current}, timerPending=${!!timerRef.current}`);
     touchMoved.current = true;
     if (timerRef.current) {
+      _lp('touchMove', 'CLEARING long press timer (finger moved)');
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
@@ -64,20 +61,20 @@ export function useLongPress(onShortPress, onLongPress, delay = 500) {
   // ── Mouse events (desktop) ──
 
   const onClick = useCallback((e) => {
-    // If touch was used, skip (prevents double-fire on mobile)
-    if (touchUsed.current) return;
+    if (touchUsed.current) {
+      _lp('onClick', 'SKIP (touchUsed guard)');
+      return;
+    }
+    _lp('onClick', 'firing shortPress (desktop click)');
     onShortPress?.(e);
   }, [onShortPress]);
 
   const onContextMenu = useCallback((e) => {
+    _lp('contextMenu', `FIRED — preventDefault + calling onLongPress. timerPending=${!!timerRef.current}`);
     e.preventDefault();
-    // Mark as long press so that the upcoming touchEnd does NOT fire shortPress.
-    // This is critical when the browser's native contextmenu event fires
-    // BEFORE our JS timer (≈500 ms): the timer gets cleared below and never
-    // sets the flag itself, so we must set it here.
     isLongPress.current = true;
-    // Clear any pending long-press timer (touch) — it's no longer needed
     if (timerRef.current) {
+      _lp('contextMenu', 'clearing pending timer');
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
@@ -87,6 +84,7 @@ export function useLongPress(onShortPress, onLongPress, delay = 500) {
 
   // External cancel: abort any pending long press (used by drag coordination)
   const cancel = useCallback(() => {
+    _lp('cancel', `CALLED — timerPending=${!!timerRef.current} touchMoved=${touchMoved.current}`);
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     touchMoved.current = true; // prevent shortPress on touchEnd
   }, []);

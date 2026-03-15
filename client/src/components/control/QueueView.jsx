@@ -31,11 +31,13 @@ export default function QueueView() {
 
   // ── Touch drag (mobile) ──
   const touchDrag = useTouchDrag(useCallback((fromIdx, toIdx) => {
+    console.log(`[QV] onMove callback — fromIdx=${fromIdx} toIdx=${toIdx}`);
     const item = queue[fromIdx];
-    if (!item || item.is_current === 1) return;
-    if (liveLock) return;
+    if (!item || item.is_current === 1) { console.log('[QV] onMove BLOCKED (locked item)'); return; }
+    if (liveLock) { console.log('[QV] onMove BLOCKED (liveLock)'); return; }
     const safePos = pos0Locked && toIdx === 0 ? 1 : toIdx;
-    if (safePos === fromIdx) return;
+    if (safePos === fromIdx) { console.log('[QV] onMove SKIP (same position)'); return; }
+    console.log(`[QV] onMove EXECUTING — id=${item.id} → pos=${safePos}`);
     api.post('/queue/move', { queueItemId: item.id, newPosition: safePos }).catch(() => {});
   }, [queue, liveLock, pos0Locked]));
 

@@ -83,6 +83,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   };
 
   const handleShortPress = (item) => {
+    console.log(`[PL] handleShortPress called — item="${item.title}"`);
     const queue = state.queue || [];
     if (queue.length === 0) {
       api.post('/queue/add', { songId: item.song_id, position: 'bottom' }).catch(() => {});
@@ -98,6 +99,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   };
 
   const handleLongPress = (item, e) => {
+    console.log(`[PL] handleLongPress called — item="${item.title}" eventType=${e.type}`);
     const x = e.touches?.[0]?.clientX || e.clientX || 200;
     const y = e.touches?.[0]?.clientY || e.clientY || 200;
     setContextMenu({
@@ -214,17 +216,37 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
     const origTouchStart = pressEvents.onTouchStart;
     const origTouchMove = pressEvents.onTouchMove;
     const origTouchEnd = pressEvents.onTouchEnd;
-    mergedHandlers.onTouchStart = (e) => { origTouchStart?.(e); dragRowHandlers.onTouchStart?.(e); };
+    mergedHandlers.onTouchStart = (e) => {
+      console.log(`[PL][row${idx}] MERGED touchStart — calling LP then TD`);
+      origTouchStart?.(e);
+      dragRowHandlers.onTouchStart?.(e);
+    };
     mergedHandlers.onTouchMove = (e) => {
+      console.log(`[PL][row${idx}] MERGED touchMove — calling LP then TD`);
       origTouchMove?.(e);
       dragRowHandlers.onTouchMove?.(e);
-      // If drag just armed/activated, cancel long press timer to prevent conflict
-      if (isDragging?.()) cancelLongPress();
+      const dragging = isDragging?.();
+      console.log(`[PL][row${idx}] MERGED touchMove — isDragging=${dragging}`);
+      if (dragging) {
+        console.log(`[PL][row${idx}] MERGED touchMove — CANCELLING longPress`);
+        cancelLongPress();
+      }
     };
-    mergedHandlers.onTouchEnd = (e) => { origTouchEnd?.(e); dragRowHandlers.onTouchEnd?.(e); };
+    mergedHandlers.onTouchEnd = (e) => {
+      console.log(`[PL][row${idx}] MERGED touchEnd — calling LP then TD`);
+      origTouchEnd?.(e);
+      dragRowHandlers.onTouchEnd?.(e);
+    };
     // Suppress context menu when drag is armed/active
     mergedHandlers.onContextMenu = (e) => {
-      if (isDragging?.()) { e.preventDefault(); return; }
+      const dragging = isDragging?.();
+      console.log(`[PL][row${idx}] MERGED contextMenu — isDragging=${dragging}`);
+      if (dragging) {
+        console.log(`[PL][row${idx}] MERGED contextMenu — SUPPRESSED (drag active)`);
+        e.preventDefault();
+        return;
+      }
+      console.log(`[PL][row${idx}] MERGED contextMenu — PASSING to LP.onContextMenu`);
       pressEvents.onContextMenu?.(e);
     };
   }

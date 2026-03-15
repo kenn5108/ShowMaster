@@ -66,7 +66,9 @@ export default function ControlLayout() {
       return false;
     };
     const handler = (e) => {
-      if (!isEditable(e.target)) e.preventDefault();
+      const editable = isEditable(e.target);
+      console.log(`[CL] document contextmenu — target=${e.target.tagName} editable=${editable} defaultPrevented=${e.defaultPrevented}`);
+      if (!editable) e.preventDefault();
     };
     document.addEventListener('contextmenu', handler, { passive: false });
     return () => document.removeEventListener('contextmenu', handler);
