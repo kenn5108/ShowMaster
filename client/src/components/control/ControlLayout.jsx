@@ -13,6 +13,7 @@ import TransportBar from './TransportBar';
 import MobileTransportBar from './MobileTransportBar';
 import QueuePanel from './QueuePanel';
 import MiniPrompter from './MiniPrompter';
+import FocusPrompter from './FocusPrompter';
 
 const VIEWS = {
   library: LibraryView,
@@ -35,6 +36,7 @@ export default function ControlLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [guardModal, setGuardModal] = useState(false);
+  const [prompterFocus, setPrompterFocus] = useState(false);
 
   const navigate = (view, props = {}) => {
     // Guard: block sync editor while transport is PLAYING
@@ -196,8 +198,17 @@ export default function ControlLayout() {
         {/* Right panel: Queue + Mini Prompter */}
         <aside className={`right-panel ${rightPanelOpen ? 'open' : ''}`}>
           <QueuePanel />
-          <MiniPrompter />
+          <div
+            className="mini-prompter-wrapper"
+            onClick={() => setPrompterFocus(true)}
+            title="Ouvrir le prompteur en mode focus"
+          >
+            <MiniPrompter />
+          </div>
         </aside>
+
+        {/* Focus prompter overlay — covers sidebar + center, NOT right panel */}
+        {prompterFocus && <FocusPrompter onClose={() => setPrompterFocus(false)} />}
       </div>
 
       {/* Transport — desktop: full bar, mobile: compact fixed bar */}
