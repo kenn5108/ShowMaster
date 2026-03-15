@@ -5,15 +5,14 @@ import { dbg, dbgDumpClasses } from '../utils/debugLog';
  * useTouchDrag — touch-based drag & drop for reorderable lists.
  *
  * options.onTap(idx)              — called on quick tap (< ARM_DELAY)
- * options.onContextMenu(idx,x,y)  — called after armed + contextMenuDelay without movement
- * options.contextMenuDelay        — ms after arm before context menu fires (default 1000)
+ * options.onContextMenu(idx,x,y)  — called on release after armed without movement
  */
 
 const ARM_DELAY = 300;
 const MOVE_THRESHOLD = 10;
 
 export function useTouchDrag(onMove, options = {}) {
-  const { onTap, onContextMenu, contextMenuDelay = 1000 } = options;
+  const { onTap, onContextMenu } = options;
 
   const onMoveRef = useRef(onMove);
   onMoveRef.current = onMove;
@@ -27,7 +26,6 @@ export function useTouchDrag(onMove, options = {}) {
     startX: 0, startY: 0, startIdx: null, startRow: null,
     active: false, fromIdx: null, overIdx: null, fromEl: null, overEl: null,
     touchInProgress: false, // true between touchStart and touchEnd
-    contextMenuTimer: null, // timer for context menu after armed
   });
 
   // ── Cleanup helper ──
@@ -35,7 +33,6 @@ export function useTouchDrag(onMove, options = {}) {
     const s = stateRef.current;
     dbg('TD', 'cleanup', `armed=${s.armed} active=${s.active} fromIdx=${s.fromIdx} startIdx=${s.startIdx} startRow=${!!s.startRow} fromEl=${!!s.fromEl}`);
     if (s.armTimer) { clearTimeout(s.armTimer); s.armTimer = null; }
-    if (s.contextMenuTimer) { clearTimeout(s.contextMenuTimer); s.contextMenuTimer = null; }
     if (s.startRow) s.startRow.classList.remove('touch-drag-armed');
     if (s.fromEl) s.fromEl.classList.remove('touch-dragging');
     if (s.overEl) {
@@ -48,7 +45,7 @@ export function useTouchDrag(onMove, options = {}) {
       armTimer: null, armed: false,
       startX: 0, startY: 0, startIdx: null, startRow: null,
       active: false, fromIdx: null, overIdx: null, fromEl: null, overEl: null,
-      touchInProgress: false, contextMenuTimer: null,
+      touchInProgress: false,
     });
     dbgDumpClasses('TD', 'cleanup-after');
   }, []);
@@ -134,22 +131,6 @@ export function useTouchDrag(onMove, options = {}) {
         dbg('TD', 'armTimer', `FIRED idx=${idx}`);
         if (row) row.classList.add('touch-drag-armed');
         dbgDumpClasses('TD', 'armTimer-after');
-
-        // Start context menu timer if callback provided
-        if (onContextMenuRef.current) {
-          dbg('TD', 'armTimer', `starting contextMenu timer (${contextMenuDelay}ms)`);
-          s.contextMenuTimer = setTimeout(() => {
-            s.contextMenuTimer = null;
-            const savedIdx = s.startIdx;
-            const savedX = s.startX;
-            const savedY = s.startY;
-            dbg('TD', 'contextMenuTimer', `FIRED idx=${savedIdx} — opening context menu`);
-            cleanup();
-            if (onContextMenuRef.current) {
-              onContextMenuRef.current(savedIdx, savedX, savedY);
-            }
-          }, contextMenuDelay);
-        }
       }, ARM_DELAY);
     },
 
@@ -175,12 +156,6 @@ export function useTouchDrag(onMove, options = {}) {
       if (s.armed && !s.active) {
         dbg('TD', 'row.touchMove', `ARMED+MOVED → activateDrag idx=${s.startIdx}`);
         e.preventDefault();
-        // Cancel context menu timer — drag takes priority
-        if (s.contextMenuTimer) {
-          dbg('TD', 'row.touchMove', 'CANCEL contextMenu timer (drag activated)');
-          clearTimeout(s.contextMenuTimer);
-          s.contextMenuTimer = null;
-        }
         activateDrag(s.startIdx, s.startRow);
       }
 
@@ -194,7 +169,7 @@ export function useTouchDrag(onMove, options = {}) {
 
     onTouchEnd: () => {
       const s = stateRef.current;
-      dbg('TD', 'row.touchEnd', `armed=${s.armed} active=${s.active} armTimer=${!!s.armTimer} contextMenuTimer=${!!s.contextMenuTimer} fromIdx=${s.fromIdx} overIdx=${s.overIdx}`);
+      dbg('TD', 'row.touchEnd', `armed=${s.armed} active=${s.active} armTimer=${!!s.armTimer} fromIdx=${s.fromIdx} overIdx=${s.overIdx}`);
 
       // Tap: arm timer still pending (< 300ms)
       if (s.armTimer) {
@@ -213,19 +188,23 @@ export function useTouchDrag(onMove, options = {}) {
         return;
       }
 
-      // Armed but no drag and no context menu fired yet → release without action
+      // Armed but no drag → open context menu immediately on release
       if (s.armed && !s.active) {
-        dbg('TD', 'row.touchEnd', 'armed+noMove+noDrag → cleanup');
-        if (s.contextMenuTimer) {
-          clearTimeout(s.contextMenuTimer);
-          s.contextMenuTimer = null;
-        }
+        const savedIdx = s.startIdx;
+        const savedX = s.startX;
+        const savedY = s.startY;
+        dbg('TD', 'row.touchEnd', `armed+noMove+noDrag → contextMenu idx=${savedIdx}`);
         if (s.startRow) s.startRow.classList.remove('touch-drag-armed');
         s.armed = false;
         s.startIdx = null;
         s.startRow = null;
         s.touchInProgress = false;
         dbgDumpClasses('TD', 'touchEnd-armed-noDrag');
+        // Fire context menu callback if provided
+        if (onContextMenuRef.current && savedIdx !== null) {
+          dbg('TD', 'row.touchEnd', `calling onContextMenu(${savedIdx})`);
+          onContextMenuRef.current(savedIdx, savedX, savedY);
+        }
         return;
       }
 
@@ -245,7 +224,7 @@ export function useTouchDrag(onMove, options = {}) {
         dbg('TD', 'row.touchEnd', 'NOT armed NOT active — no-op');
       }
     },
-  }), [activateDrag, cleanup, updateHover, contextMenuDelay]);
+  }), [activateDrag, cleanup, updateHover]);
 
   // ── Handle-level instant drag (legacy) ──
   const handleTouchStart = useCallback((idx, e) => {

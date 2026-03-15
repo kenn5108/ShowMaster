@@ -112,7 +112,6 @@ export default function PlaylistView({ playlistId, onNavigate }) {
         const item = itemsRef.current[idx];
         if (item) handleLongPress(item, { clientX: x, clientY: y });
       }, [handleLongPress]),
-      contextMenuDelay: 1000,
     }
   );
 
