@@ -25,14 +25,27 @@ const VIEWS = {
   logs: LogsView,
 };
 
+// Views that require playback to NOT be PLAYING
+const PLAYBACK_GUARDED_VIEWS = new Set(['sync']);
+
 export default function ControlLayout() {
   const { state, connected } = useSocket();
   const [activeView, setActiveView] = useState('library');
   const [viewProps, setViewProps] = useState({});
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  const [guardModal, setGuardModal] = useState(false);
 
   const navigate = (view, props = {}) => {
+    // Guard: block sync editor while transport is PLAYING
+    if (PLAYBACK_GUARDED_VIEWS.has(view)) {
+      const playerState = state.rocketshow?.playerState;
+      if (playerState === 'PLAYING') {
+        setGuardModal(true);
+        return;
+      }
+    }
+
     setActiveView(view);
     setViewProps(props);
     setSidebarOpen(false);
@@ -100,6 +113,25 @@ export default function ControlLayout() {
       {/* Transport — desktop: full bar, mobile: compact fixed bar */}
       <TransportBar />
       <MobileTransportBar />
+
+      {/* Guard modal — blocks sync/lyrics while playing */}
+      {guardModal && (
+        <div className="popup-overlay" onClick={() => setGuardModal(false)}>
+          <div className="popup" onClick={(e) => e.stopPropagation()}>
+            <div className="popup-title">Lecture en cours</div>
+            <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.5 }}>
+              Veuillez mettre en pause ou arrêter la lecture avant de synchroniser une chanson.
+            </p>
+            <button
+              className="btn btn-primary"
+              style={{ width: '100%' }}
+              onClick={() => setGuardModal(false)}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

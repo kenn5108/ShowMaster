@@ -9,14 +9,25 @@ export default function SyncEditor({ songId, onNavigate }) {
   const [lines, setLines] = useState([]);
   const [cues, setCues] = useState([]);
   const [saved, setSaved] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
     if (!songId) return;
+    setLoadError(null);
+
+    // Load song info, lyrics, and cues
     api.get(`/library/${songId}`).then(setSong).catch(() => {});
     api.get(`/lyrics/${songId}`).then(data => {
       setLines((data.text || '').split('\n'));
     }).catch(() => {});
     api.get(`/lyrics/${songId}/cues`).then(setCues).catch(() => {});
+
+    // Explicitly load THIS song's composition in RocketShow (bypass queue)
+    // so that Start Sync / tap sync always uses the correct timecode
+    api.post('/playback/load-for-sync', { songId })
+      .catch(err => {
+        setLoadError('Impossible de charger la composition dans RocketShow.');
+      });
   }, [songId]);
 
   const getCueForLine = (lineIndex) => {
@@ -71,6 +82,12 @@ export default function SyncEditor({ songId, onNavigate }) {
           {saved ? 'Sauvegardé !' : 'Sauvegarder'}
         </button>
       </div>
+
+      {loadError && (
+        <div style={{ padding: '8px 12px', marginBottom: 12, borderRadius: 6, background: 'rgba(239,68,68,0.15)', color: 'var(--error)', fontSize: 13 }}>
+          {loadError}
+        </div>
+      )}
 
       <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
         Lancez la lecture puis cliquez sur chaque ligne au bon moment pour synchroniser.

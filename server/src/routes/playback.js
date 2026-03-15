@@ -65,6 +65,28 @@ router.post('/seek', async (req, res) => {
   }
 });
 
+/**
+ * Load a composition by songId for sync editing (bypasses the queue).
+ * Only allowed when transport is STOPPED or PAUSED.
+ */
+router.post('/load-for-sync', async (req, res) => {
+  try {
+    const { songId } = req.body;
+    if (!songId) return res.status(400).json({ error: 'songId required' });
+
+    const rs = getState().rocketshow;
+    if (rs.playerState === 'PLAYING') {
+      return res.status(409).json({ error: 'Cannot load for sync while playing' });
+    }
+
+    await playback.loadForSync(songId);
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error('route:playback', `[POST /load-for-sync] error: ${err.message}`);
+    res.status(400).json({ error: err.message });
+  }
+});
+
 router.post('/mode', (req, res) => {
   try {
     playback.setMode(req.body.mode);

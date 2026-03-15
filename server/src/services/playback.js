@@ -262,4 +262,19 @@ function setMode(mode) {
   logger.info('playback', `Mode changed to: ${mode}`);
 }
 
-module.exports = { init, onPollUpdate, play, pause, stop, next, seek, playQueueItem, playFirst, advanceToNext, setMode };
+/**
+ * Load a composition for sync editing (bypasses the queue entirely).
+ * Looks up the song's rs_name and loads it in RocketShow without playing.
+ */
+async function loadForSync(songId) {
+  const song = library.getById(songId);
+  if (!song) throw new Error(`Song #${songId} not found`);
+  if (!song.rs_name) throw new Error(`Song #${songId} has no rs_name`);
+
+  logger.info('playback', `[LOAD-FOR-SYNC] ── Loading "${song.rs_name}" for sync editing (song #${songId}: "${song.title}")`);
+  await rocketshow.loadComposition(song.rs_name);
+  songEndHandled = true; // RS is stopped, don't trigger onSongEnd
+  logger.info('playback', `[LOAD-FOR-SYNC] ── Loaded (not playing): ${song.title}`);
+}
+
+module.exports = { init, onPollUpdate, play, pause, stop, next, seek, playQueueItem, playFirst, advanceToNext, setMode, loadForSync };
