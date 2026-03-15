@@ -27,13 +27,15 @@ export function useTouchDrag(onMove, options = {}) {
     active: false, fromIdx: null, overIdx: null, fromEl: null, overEl: null,
     touchInProgress: false, // true between touchStart and touchEnd
     listEl: null, // the [data-drag-list] container — scopes updateHover
-    hoverStamp: 0, // incremented on each updateHover call; doc handler skips if row handler already ran
   });
 
   // ── Cleanup helper ──
-  const removeAllDragClasses = () => {
-    document.querySelectorAll('.touch-drag-armed, .touch-dragging, .touch-drag-over, .touch-drag-over-above')
-      .forEach(el => el.classList.remove('touch-drag-armed', 'touch-dragging', 'touch-drag-over', 'touch-drag-over-above'));
+  // IMPORTANT: deferred passes only remove INDICATOR classes (touch-drag-over*),
+  // never armed/dragging — those belong to whichever drag is currently active
+  // and must not be touched by a stale deferred callback from another instance.
+  const removeIndicatorClasses = () => {
+    document.querySelectorAll('.touch-drag-over, .touch-drag-over-above')
+      .forEach(el => el.classList.remove('touch-drag-over', 'touch-drag-over-above'));
   };
 
   const cleanup = useCallback(() => {
@@ -50,18 +52,19 @@ export function useTouchDrag(onMove, options = {}) {
     // Save listEl ref before reset — needed for force-repaint
     const savedListEl = s.listEl;
 
-    // Synchronous pass: remove from all elements in the document
-    removeAllDragClasses();
+    // Synchronous pass: remove ALL drag classes from the document
+    document.querySelectorAll('.touch-drag-armed, .touch-dragging, .touch-drag-over, .touch-drag-over-above')
+      .forEach(el => el.classList.remove('touch-drag-armed', 'touch-dragging', 'touch-drag-over', 'touch-drag-over-above'));
 
     Object.assign(s, {
       armTimer: null, armed: false,
       startX: 0, startY: 0, startIdx: null, startRow: null,
       active: false, fromIdx: null, overIdx: null, fromEl: null, overEl: null,
-      touchInProgress: false, listEl: null, hoverStamp: 0,
+      touchInProgress: false, listEl: null,
     });
 
-    // Force repaint on the list container — Chrome on Android doesn't always
-    // repaint box-shadow on table rows after class removal with border-collapse.
+    // Force repaint on the list container — Chrome on Android sometimes
+    // keeps stale box-shadow rendering on table cells after class removal.
     if (savedListEl) {
       savedListEl.style.willChange = 'transform';
       // eslint-disable-next-line no-unused-expressions
@@ -69,10 +72,11 @@ export function useTouchDrag(onMove, options = {}) {
       savedListEl.style.willChange = '';
     }
 
-    // Deferred passes: catch any class re-added by racing event handlers
-    // or stale rendering artifacts after React re-render
-    requestAnimationFrame(removeAllDragClasses);
-    setTimeout(removeAllDragClasses, 150);
+    // Deferred passes: only remove INDICATOR classes (touch-drag-over*).
+    // Never touch armed/dragging — another drag in a different list may
+    // have started by the time these fire.
+    requestAnimationFrame(removeIndicatorClasses);
+    setTimeout(removeIndicatorClasses, 150);
 
     dbgDumpClasses('TD', 'cleanup-after');
   }, []);
@@ -193,7 +197,6 @@ export function useTouchDrag(onMove, options = {}) {
       if (s.active) {
         e.preventDefault();
         const touch = e.touches[0];
-        s.hoverStamp++;
         updateHover(touch.clientX, touch.clientY, s);
       }
     },
@@ -273,20 +276,14 @@ export function useTouchDrag(onMove, options = {}) {
   // but if the finger slides outside the row during drag, these ensure
   // the gesture still completes correctly.
   useEffect(() => {
-    let lastDocStamp = 0;
     const onDocTouchMove = (e) => {
       const s = stateRef.current;
       if (!s.active) return;
       e.preventDefault();
-      // Skip if the row handler already called updateHover for this event
-      // (they share the same state, so a duplicate call can race with cleanup).
-      if (s.hoverStamp !== lastDocStamp) {
-        lastDocStamp = s.hoverStamp;
-        return; // row handler already processed this
-      }
-      // Row handler didn't fire (finger moved outside original element) — safety net
+      // Safety net: updateHover is already called by the row handler,
+      // but this catches cases where the finger moves outside the original element.
+      // Since updateHover is scoped to s.listEl, duplicate calls are harmless.
       const touch = e.touches[0];
-      s.hoverStamp++;
       updateHover(touch.clientX, touch.clientY, s);
     };
 
