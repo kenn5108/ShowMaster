@@ -8,6 +8,10 @@ router.get('/', (req, res) => {
   res.json({ session: current });
 });
 
+router.get('/all', (req, res) => {
+  res.json(session.getAll());
+});
+
 router.post('/open', (req, res) => {
   try {
     const { venue } = req.body;

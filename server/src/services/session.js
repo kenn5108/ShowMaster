@@ -67,4 +67,13 @@ function getCurrent() {
   return getState().session;
 }
 
-module.exports = { init, open, close, getCurrent };
+function getAll() {
+  return getDb().prepare(`
+    SELECT s.*,
+           (SELECT COUNT(*) FROM history h WHERE h.session_id = s.id) AS song_count
+    FROM sessions s
+    ORDER BY s.opened_at DESC
+  `).all();
+}
+
+module.exports = { init, open, close, getCurrent, getAll };
