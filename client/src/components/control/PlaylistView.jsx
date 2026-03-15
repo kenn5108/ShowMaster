@@ -23,6 +23,10 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
 
+  // Stable refs for callbacks used by useTouchDrag options
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+
   useEffect(() => {
     if (!playlistId) return;
     api.get(`/playlists/${playlistId}`).then(setPlaylist).catch(() => {});
@@ -59,14 +63,58 @@ export default function PlaylistView({ playlistId, onNavigate }) {
 
   const canDrag = sortBy === 'position' && !liveLock;
 
-  // ── Touch drag (mobile) ──
-  const touchDrag = useTouchDrag(useCallback((fromIdx, toIdx) => {
-    const item = items[fromIdx];
-    if (!item) return;
-    api.post(`/playlists/${playlistId}/items/${item.id}/move`, {
-      newPosition: toIdx,
-    }).then(loadItems).catch(() => {});
-  }, [items, playlistId]));
+  const handleShortPress = useCallback((item) => {
+    dbg('PL', 'handleShortPress', `item="${item.title}"`);
+    const queue = state.queue || [];
+    if (queue.length === 0) {
+      api.post('/queue/add', { songId: item.song_id, position: 'bottom' }).catch(() => {});
+    } else {
+      setPopup({
+        title: item.title,
+        actions: [
+          { label: '⬆ Ajouter en haut de file', onClick: () => api.post('/queue/add', { songId: item.song_id, position: 'top' }) },
+          { label: '⬇ Ajouter en bas de file', onClick: () => api.post('/queue/add', { songId: item.song_id, position: 'bottom' }) },
+        ],
+      });
+    }
+  }, [state.queue]);
+
+  const handleLongPress = useCallback((item, e) => {
+    dbg('PL', 'handleLongPress', `item="${item.title}"`);
+    const x = e?.touches?.[0]?.clientX || e?.clientX || 200;
+    const y = e?.touches?.[0]?.clientY || e?.clientY || 200;
+    setContextMenu({
+      x, y,
+      items: [
+        { label: 'Supprimer de la playlist', onClick: () => { api.delete(`/playlists/${playlistId}/items/${item.id}`).then(loadItems); } },
+        { separator: true },
+        { label: 'Éditer les paroles', onClick: () => onNavigate('lyrics', { songId: item.song_id }) },
+        { label: 'Ouvrir la synchro', onClick: () => onNavigate('sync', { songId: item.song_id }) },
+      ],
+    });
+  }, [playlistId, onNavigate]);
+
+  // ── Touch drag (mobile) with integrated tap + context menu ──
+  const touchDrag = useTouchDrag(
+    useCallback((fromIdx, toIdx) => {
+      const item = itemsRef.current[fromIdx];
+      if (!item) return;
+      api.post(`/playlists/${playlistId}/items/${item.id}/move`, {
+        newPosition: toIdx,
+      }).then(loadItems).catch(() => {});
+    }, [playlistId]),
+    {
+      onTap: useCallback((idx) => {
+        const item = itemsRef.current[idx];
+        if (item) handleShortPress(item);
+      }, [handleShortPress]),
+      onContextMenu: useCallback((idx, x, y) => {
+        const item = itemsRef.current[idx];
+        if (item) handleLongPress(item, { clientX: x, clientY: y });
+      }, [handleLongPress]),
+      contextMenuDelay: 1000,
+    }
+  );
 
   // ── HTML5 drag (desktop) ──
   const handleDragStart = (idx) => { dragItem.current = idx; };
@@ -81,37 +129,6 @@ export default function PlaylistView({ playlistId, onNavigate }) {
     }).then(loadItems).catch(() => {});
     dragItem.current = null;
     dragOverItem.current = null;
-  };
-
-  const handleShortPress = (item) => {
-    dbg('PL', 'handleShortPress', `item="${item.title}"`);
-    const queue = state.queue || [];
-    if (queue.length === 0) {
-      api.post('/queue/add', { songId: item.song_id, position: 'bottom' }).catch(() => {});
-    } else {
-      setPopup({
-        title: item.title,
-        actions: [
-          { label: '⬆ Ajouter en haut de file', onClick: () => api.post('/queue/add', { songId: item.song_id, position: 'top' }) },
-          { label: '⬇ Ajouter en bas de file', onClick: () => api.post('/queue/add', { songId: item.song_id, position: 'bottom' }) },
-        ],
-      });
-    }
-  };
-
-  const handleLongPress = (item, e) => {
-    dbg('PL', 'handleLongPress', `item="${item.title}" eventType=${e.type}`);
-    const x = e.touches?.[0]?.clientX || e.clientX || 200;
-    const y = e.touches?.[0]?.clientY || e.clientY || 200;
-    setContextMenu({
-      x, y,
-      items: [
-        { label: 'Supprimer de la playlist', onClick: () => { api.delete(`/playlists/${playlistId}/items/${item.id}`).then(loadItems); } },
-        { separator: true },
-        { label: 'Éditer les paroles', onClick: () => onNavigate('lyrics', { songId: item.song_id }) },
-        { label: 'Ouvrir la synchro', onClick: () => onNavigate('sync', { songId: item.song_id }) },
-      ],
-    });
   };
 
   // Apply text search + tag filters
@@ -185,7 +202,6 @@ export default function PlaylistView({ playlistId, onNavigate }) {
               onDragOver={(e) => handleDragOver(e, idx)}
               onDrop={handleDrop}
               dragRowHandlers={touchDrag.rowTouchHandlers(idx)}
-              isDragging={touchDrag.isDragging}
               isTouching={touchDrag.isTouching}
               onShortPress={() => handleShortPress(item)}
               onLongPress={(e) => handleLongPress(item, e)}
@@ -206,51 +222,47 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   );
 }
 
-function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, dragRowHandlers, isDragging, isTouching, onShortPress, onLongPress }) {
+function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, dragRowHandlers, isTouching, onShortPress, onLongPress }) {
   const tags = tryParseJson(item.tags, []);
-  const { cancel: cancelLongPress, ...pressEvents } = useLongPress(onShortPress, onLongPress);
+  const touchUsedRef = useRef(false);
 
-  // Merge touch handlers: both useLongPress and useTouchDrag need touch events.
-  // Row-level drag handlers are only active when canDrag is true.
-  // When drag is armed/active, long press is suppressed to avoid conflict.
-  const mergedHandlers = { ...pressEvents };
+  // useLongPress — used ONLY when canDrag is false (non-drag mode: filtered, sorted, locked)
+  const longPressHandlers = useLongPress(onShortPress, onLongPress);
+
+  // Build event handlers based on drag mode
+  let rowEvents;
   if (canDrag && dragRowHandlers) {
-    const origTouchStart = pressEvents.onTouchStart;
-    const origTouchMove = pressEvents.onTouchMove;
-    const origTouchEnd = pressEvents.onTouchEnd;
-    mergedHandlers.onTouchStart = (e) => {
-      dbg('PL', `row${idx}.touchStart`, 'MERGED — calling LP then TD');
-      origTouchStart?.(e);
-      dragRowHandlers.onTouchStart?.(e);
-    };
-    mergedHandlers.onTouchMove = (e) => {
-      dbg('PL', `row${idx}.touchMove`, 'MERGED — calling LP then TD');
-      origTouchMove?.(e);
-      dragRowHandlers.onTouchMove?.(e);
-      const dragging = isDragging?.();
-      dbg('PL', `row${idx}.touchMove`, `isDragging=${dragging}`);
-      if (dragging) {
-        dbg('PL', `row${idx}.touchMove`, 'CANCELLING longPress');
-        cancelLongPress();
-      }
-    };
-    mergedHandlers.onTouchEnd = (e) => {
-      dbg('PL', `row${idx}.touchEnd`, 'MERGED — calling LP then TD');
-      origTouchEnd?.(e);
-      dragRowHandlers.onTouchEnd?.(e);
-    };
-    // Suppress context menu when drag is armed/active
-    mergedHandlers.onContextMenu = (e) => {
-      const dragging = isDragging?.();
-      dbg('PL', `row${idx}.contextMenu`, `isDragging=${dragging}`);
-      if (dragging) {
-        dbg('PL', `row${idx}.contextMenu`, 'SUPPRESSED (drag active)');
+    // ── Drag mode ──
+    // Touch: entirely handled by useTouchDrag (tap / drag / context menu)
+    // Desktop: simple onClick (short press) + onContextMenu (right-click → long press)
+    rowEvents = {
+      onTouchStart: (e) => {
+        touchUsedRef.current = true;
+        dragRowHandlers.onTouchStart?.(e);
+      },
+      onTouchMove: dragRowHandlers.onTouchMove,
+      onTouchEnd: (e) => {
+        dragRowHandlers.onTouchEnd?.(e);
+        // Reset touchUsed after synthetic click window
+        setTimeout(() => { touchUsedRef.current = false; }, 400);
+      },
+      onClick: (e) => {
+        if (touchUsedRef.current) {
+          dbg('PL', `row${idx}.onClick`, 'SKIP (touchUsed guard)');
+          return;
+        }
+        dbg('PL', `row${idx}.onClick`, 'desktop click → shortPress');
+        onShortPress?.();
+      },
+      onContextMenu: (e) => {
+        dbg('PL', `row${idx}.contextMenu`, 'desktop right-click → longPress');
         e.preventDefault();
-        return;
-      }
-      dbg('PL', `row${idx}.contextMenu`, 'PASSING to LP.onContextMenu');
-      pressEvents.onContextMenu?.(e);
+        onLongPress?.(e);
+      },
     };
+  } else {
+    // ── Non-drag mode ── useLongPress handles tap + long press for both touch and desktop
+    rowEvents = longPressHandlers;
   }
 
   return (
@@ -260,7 +272,7 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
       onDragStart={(e) => { if (isTouching?.()) { e.preventDefault(); return; } onDragStart?.(e); }}
       onDragOver={onDragOver}
       onDrop={onDrop}
-      {...mergedHandlers}
+      {...rowEvents}
       style={{ cursor: 'pointer' }}
     >
       <td>
