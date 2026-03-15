@@ -186,6 +186,37 @@ function normalize(str) {
 }
 
 /**
+ * Get similarity suggestions for a specific missing song.
+ * Returns top 3 matches from available songs, sorted by score.
+ */
+function getSuggestionsForSong(songId) {
+  const db = getDb();
+  const song = db.prepare('SELECT * FROM songs WHERE id = ?').get(songId);
+  if (!song) throw new Error('Song not found');
+
+  const availableSongs = db.prepare(
+    'SELECT id, rs_name, title, artist, duration_ms FROM songs WHERE rs_available = 1 AND id != ?'
+  ).all(songId);
+
+  const suggestions = [];
+  for (const candidate of availableSongs) {
+    const score = similarityScore(song, candidate);
+    if (score >= 15) {
+      suggestions.push({
+        songId: candidate.id,
+        title: candidate.title,
+        artist: candidate.artist,
+        duration_ms: candidate.duration_ms,
+        score: Math.round(score),
+      });
+    }
+  }
+
+  suggestions.sort((a, b) => b.score - a.score);
+  return suggestions.slice(0, 3);
+}
+
+/**
  * Reassociate a missing song with a new RocketShow composition.
  * - Updates the old song's rs_name, title, artist, duration to match the new one
  * - Deletes the auto-created duplicate for the new rs_name
@@ -325,5 +356,5 @@ function search(query) {
 
 module.exports = {
   syncFromRocketShow, getAll, getById, getByRsName, update, search,
-  parseCompositionName, reassociate, deleteSong,
+  parseCompositionName, reassociate, deleteSong, getSuggestionsForSong,
 };

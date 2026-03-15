@@ -14,6 +14,15 @@ router.get('/', (req, res) => {
   }
 });
 
+router.get('/:id/suggestions', (req, res) => {
+  try {
+    const suggestions = library.getSuggestionsForSong(parseInt(req.params.id));
+    res.json(suggestions);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 router.get('/:id', (req, res) => {
   const song = library.getById(parseInt(req.params.id));
   if (!song) return res.status(404).json({ error: 'Song not found' });

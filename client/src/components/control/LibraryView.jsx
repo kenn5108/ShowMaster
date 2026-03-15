@@ -22,6 +22,8 @@ export default function LibraryView({ onNavigate }) {
   // Sync result state
   const [syncResult, setSyncResult] = useState(null);
   const [reassociateModal, setReassociateModal] = useState(null);
+  const [reassociateSearch, setReassociateSearch] = useState('');
+  const [reassociateError, setReassociateError] = useState(null);
 
   const loadSongs = useCallback(async () => {
     try {
@@ -145,18 +147,40 @@ export default function LibraryView({ onNavigate }) {
 
   // ── Reassociate: open picker for a single missing song ──
   const openReassociateForSong = async (song) => {
-    const available = songs.filter(s => s.rs_available && s.id !== song.id);
-    setReassociateModal({ missingSong: song, candidates: available });
+    try {
+      // Fetch suggestions from backend for this specific song
+      const suggestions = await api.get(`/library/${song.id}/suggestions`);
+      setReassociateModal({
+        missingSong: song,
+        suggestions: suggestions || [],
+        showManualSearch: false,
+      });
+      setReassociateSearch('');
+      setReassociateError(null);
+    } catch {
+      // Fallback: open with empty suggestions, show manual search directly
+      setReassociateModal({
+        missingSong: song,
+        suggestions: [],
+        showManualSearch: true,
+      });
+      setReassociateSearch('');
+      setReassociateError(null);
+    }
   };
 
   // ── Reassociate: confirm ──
   const handleReassociate = async (oldSongId, newSongId) => {
+    setReassociateError(null);
     try {
       await api.post(`/library/${oldSongId}/reassociate`, { newSongId });
       setReassociateModal(null);
       setSyncResult(null);
       await loadSongs();
-    } catch {}
+    } catch (err) {
+      console.error('Reassociate failed:', err);
+      setReassociateError(err.message || 'Erreur lors de la réassociation');
+    }
   };
 
   // ── Delete song ──
@@ -327,27 +351,98 @@ export default function LibraryView({ onNavigate }) {
               Réassocier « {reassociateModal.missingSong.title} »
             </div>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 12px', lineHeight: 1.5 }}>
-              Sélectionnez la chanson RocketShow correspondante. Les paroles et la synchro seront conservées.
+              Les paroles et la synchro seront conservées.
             </p>
-            <div style={{ overflow: 'auto', flex: 1 }}>
-              <div className="popup-actions">
-                {reassociateModal.candidates.map(c => (
-                  <button
-                    key={c.id}
-                    className="popup-action"
-                    onClick={() => handleReassociate(reassociateModal.missingSong.id, c.id)}
-                  >
-                    <div>{c.title}</div>
-                    {c.artist && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.artist}</div>}
-                  </button>
-                ))}
-                {reassociateModal.candidates.length === 0 && (
-                  <div style={{ padding: 12, color: 'var(--text-muted)', fontSize: 13 }}>
-                    Aucune chanson disponible pour le rapprochement
-                  </div>
-                )}
+
+            {reassociateError && (
+              <div style={{ background: 'rgba(233,69,96,0.15)', border: '1px solid rgba(233,69,96,0.4)', borderRadius: 6, padding: '8px 12px', marginBottom: 10, fontSize: 12, color: '#e94560' }}>
+                {reassociateError}
               </div>
+            )}
+
+            <div style={{ overflow: 'auto', flex: 1 }}>
+              {/* Auto-suggestions */}
+              {reassociateModal.suggestions?.length > 0 && !reassociateModal.showManualSearch && (
+                <div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8, fontWeight: 600 }}>
+                    Suggestions automatiques
+                  </div>
+                  <div className="popup-actions">
+                    {reassociateModal.suggestions.map(s => (
+                      <button
+                        key={s.songId}
+                        className="popup-action"
+                        onClick={() => handleReassociate(reassociateModal.missingSong.id, s.songId)}
+                        style={{ textAlign: 'left' }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <div>{s.title}</div>
+                            {s.artist && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{s.artist}</div>}
+                          </div>
+                          <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600, marginLeft: 8, flexShrink: 0 }}>
+                            {s.score}%
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {reassociateModal.suggestions?.length === 0 && !reassociateModal.showManualSearch && (
+                <div style={{ padding: 12, color: 'var(--text-muted)', fontSize: 13, textAlign: 'center' }}>
+                  Aucune suggestion automatique
+                </div>
+              )}
+
+              {/* Manual search toggle */}
+              {!reassociateModal.showManualSearch && (
+                <button
+                  className="popup-action"
+                  onClick={() => setReassociateModal(prev => ({ ...prev, showManualSearch: true }))}
+                  style={{ marginTop: 10, color: 'var(--accent)', fontSize: 13, textAlign: 'center' }}
+                >
+                  Choisir une autre chanson...
+                </button>
+              )}
+
+              {/* Manual search */}
+              {reassociateModal.showManualSearch && (
+                <div>
+                  <input
+                    className="search-input"
+                    type="text"
+                    placeholder="Rechercher un titre ou artiste..."
+                    value={reassociateSearch}
+                    onChange={(e) => setReassociateSearch(e.target.value)}
+                    autoFocus
+                    style={{ marginBottom: 8, fontSize: 13 }}
+                  />
+                  <div className="popup-actions">
+                    {songs
+                      .filter(s => {
+                        if (!s.rs_available || s.id === reassociateModal.missingSong.id) return false;
+                        if (!reassociateSearch) return true;
+                        const q = reassociateSearch.toLowerCase();
+                        return (s.title || '').toLowerCase().includes(q) || (s.artist || '').toLowerCase().includes(q);
+                      })
+                      .map(c => (
+                        <button
+                          key={c.id}
+                          className="popup-action"
+                          onClick={() => handleReassociate(reassociateModal.missingSong.id, c.id)}
+                          style={{ textAlign: 'left' }}
+                        >
+                          <div>{c.title}</div>
+                          {c.artist && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.artist}</div>}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
+
             <button className="popup-action" onClick={() => setReassociateModal(null)} style={{ color: 'var(--text-muted)', marginTop: 8, flexShrink: 0 }}>
               Annuler
             </button>
