@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 import { formatTime } from '../../utils/format';
+import { IconStop, IconPlay, IconPause, IconNext } from './TransportIcons';
 import MobileQueueDrawer from './MobileQueueDrawer';
 
 /**
@@ -90,16 +91,16 @@ export default function MobileTransportBar() {
           </button>
 
           <button className="mobile-transport-btn" onClick={handleStop} title="Stop">
-            ⏹
+            <IconStop />
           </button>
 
           {isPlaying ? (
             <button className="mobile-transport-btn mobile-transport-btn-main" onClick={handlePause} title="Pause">
-              ⏸
+              <IconPause />
             </button>
           ) : (
             <button className="mobile-transport-btn mobile-transport-btn-main" onClick={handlePlay} title="Play">
-              ▶
+              <IconPlay />
             </button>
           )}
 
@@ -109,7 +110,7 @@ export default function MobileTransportBar() {
             title="Suivant"
             style={syncMode ? { opacity: 0.3, pointerEvents: 'none' } : {}}
           >
-            ⏭
+            <IconNext />
           </button>
 
           {/* Queue drawer toggle — chevron + badge (tap = toggle) */}

@@ -54,22 +54,79 @@ export default function ControlLayout() {
   const ViewComponent = VIEWS[activeView] || LibraryView;
 
   // ── Wake Lock: keep screen on while the app is visible ──
+  // Strategy 1: Wake Lock API (requires secure context — HTTPS or localhost)
+  // Strategy 2: Invisible video loop fallback (works on HTTP, Android Chrome, Safari)
   useEffect(() => {
     let wakeLock = null;
-    const request = async () => {
+    let video = null;
+    let usingApi = false;
+
+    const requestApi = async () => {
       try {
         if ('wakeLock' in navigator && document.visibilityState === 'visible') {
           wakeLock = await navigator.wakeLock.request('screen');
+          usingApi = true;
+          console.log('[WakeLock] Screen wake lock acquired via API');
+          wakeLock.addEventListener('release', () => {
+            console.log('[WakeLock] API lock released');
+          });
         }
-      } catch { /* user denied or not supported — silently ignore */ }
+      } catch (err) {
+        console.warn('[WakeLock] API failed:', err.message, '— falling back to video method');
+        startVideoFallback();
+      }
     };
-    request();
-    // Re-acquire on tab focus (wake lock is released on tab switch)
-    const onVisibility = () => { if (document.visibilityState === 'visible') request(); };
+
+    const startVideoFallback = () => {
+      if (video) return; // already running
+      try {
+        video = document.createElement('video');
+        video.setAttribute('playsinline', '');
+        video.setAttribute('muted', '');
+        video.muted = true;
+        video.loop = true;
+        video.style.cssText = 'position:fixed;top:-1px;left:-1px;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1';
+        // Tiny silent webm (base64) — ~200 bytes, plays silently in loop
+        video.src = 'data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwH/////////FUmpZpkq17GDD0JATYCGQ2hyb21lV0WGQ2hyb21lFlSua7+uvdeBAXPFh5JBjq1ZRLuXgQFVd2VibUWGRWFjIFRvb2xElSua18AAAAAAAAAAAABkAAAAAAAAAAAAAAAAAAAJAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAJAAAAAAAAAAAAAAAAAAAAAAAAAAAAEVzc3MBAAAAAAAABwAAAk';
+        document.body.appendChild(video);
+        video.play().then(() => {
+          console.log('[WakeLock] Video fallback active — screen will stay on');
+        }).catch((e) => {
+          console.warn('[WakeLock] Video fallback failed:', e.message);
+        });
+      } catch (e) {
+        console.warn('[WakeLock] Video fallback error:', e.message);
+      }
+    };
+
+    // Initial attempt
+    if ('wakeLock' in navigator && window.isSecureContext) {
+      requestApi();
+    } else {
+      if (!window.isSecureContext) {
+        console.log('[WakeLock] Not a secure context (HTTP) — API unavailable, using video fallback');
+      }
+      startVideoFallback();
+    }
+
+    // Re-acquire on tab focus
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (usingApi) {
+        requestApi();
+      } else if (video && video.paused) {
+        video.play().catch(() => {});
+      }
+    };
     document.addEventListener('visibilitychange', onVisibility);
+
     return () => {
       document.removeEventListener('visibilitychange', onVisibility);
       wakeLock?.release().catch(() => {});
+      if (video) {
+        video.pause();
+        video.remove();
+      }
     };
   }, []);
 

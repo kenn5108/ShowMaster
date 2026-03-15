@@ -2,6 +2,7 @@ import React from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 import { formatTime } from '../../utils/format';
+import { IconStop, IconPlay, IconPause, IconNext } from './TransportIcons';
 
 export default function TransportBar() {
   const { state } = useSocket();
@@ -68,18 +69,18 @@ export default function TransportBar() {
 
       {/* Transport buttons */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <button className="btn-transport" onClick={handleStop} title="Stop">⏹</button>
+        <button className="btn-transport" onClick={handleStop} title="Stop"><IconStop /></button>
         {isPlaying ? (
-          <button className="btn-transport active" onClick={handlePause} title="Pause">⏸</button>
+          <button className="btn-transport active" onClick={handlePause} title="Pause"><IconPause /></button>
         ) : (
-          <button className="btn-transport" onClick={handlePlay} title="Play">▶</button>
+          <button className="btn-transport" onClick={handlePlay} title="Play"><IconPlay /></button>
         )}
         <button
           className="btn-transport"
           onClick={handleNext}
           title="Suivant"
           style={syncMode ? { opacity: 0.3, pointerEvents: 'none' } : {}}
-        >⏭</button>
+        ><IconNext /></button>
       </div>
 
       {/* Mode toggle — disabled during sync */}
