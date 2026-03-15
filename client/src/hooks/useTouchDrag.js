@@ -26,6 +26,7 @@ export function useTouchDrag(onMove, options = {}) {
     startX: 0, startY: 0, startIdx: null, startRow: null,
     active: false, fromIdx: null, overIdx: null, fromEl: null, overEl: null,
     touchInProgress: false, // true between touchStart and touchEnd
+    listEl: null, // the [data-drag-list] container — scopes updateHover
   });
 
   // ── Cleanup helper ──
@@ -45,12 +46,15 @@ export function useTouchDrag(onMove, options = {}) {
       armTimer: null, armed: false,
       startX: 0, startY: 0, startIdx: null, startRow: null,
       active: false, fromIdx: null, overIdx: null, fromEl: null, overEl: null,
-      touchInProgress: false,
+      touchInProgress: false, listEl: null,
     });
     dbgDumpClasses('TD', 'cleanup-after');
   }, []);
 
   // ── Update hover target with insertion indicator ──
+  // Scoped: only matches rows inside s.listEl (the [data-drag-list] container
+  // captured on touchStart) so that dragging in one list never adds classes
+  // to rows in another list.
   const updateHover = useCallback((touchX, touchY, s) => {
     const target = document.elementFromPoint(touchX, touchY);
     const row = target?.closest('[data-drag-idx]');
@@ -60,7 +64,8 @@ export function useTouchDrag(onMove, options = {}) {
       s.overEl.classList.remove('touch-drag-over-above');
     }
 
-    if (row) {
+    // Only accept rows that belong to the SAME list container
+    if (row && s.listEl && s.listEl.contains(row)) {
       const overIdx = parseInt(row.dataset.dragIdx, 10);
       if (!isNaN(overIdx)) {
         const rect = row.getBoundingClientRect();
@@ -73,17 +78,15 @@ export function useTouchDrag(onMove, options = {}) {
           row.classList.add(insertBefore ? 'touch-drag-over-above' : 'touch-drag-over');
         }
       }
-    } else {
-      const listEl = target?.closest('[data-drag-list]');
-      if (listEl) {
-        const count = parseInt(listEl.dataset.dragList, 10);
-        if (!isNaN(count) && count > 0) {
-          const lastRow = listEl.querySelector(`[data-drag-idx="${count - 1}"]`);
-          if (lastRow) {
-            s.overIdx = count;
-            s.overEl = lastRow;
-            if (s.fromIdx !== count - 1) lastRow.classList.add('touch-drag-over');
-          }
+    } else if (s.listEl && target && s.listEl.contains(target)) {
+      // Finger is inside the list area but not directly on a row — target last row
+      const count = parseInt(s.listEl.dataset.dragList, 10);
+      if (!isNaN(count) && count > 0) {
+        const lastRow = s.listEl.querySelector(`[data-drag-idx="${count - 1}"]`);
+        if (lastRow) {
+          s.overIdx = count;
+          s.overEl = lastRow;
+          if (s.fromIdx !== count - 1) lastRow.classList.add('touch-drag-over');
         }
       }
     }
@@ -123,6 +126,7 @@ export function useTouchDrag(onMove, options = {}) {
       s.startY = touch.clientY;
       s.startIdx = idx;
       s.startRow = row;
+      s.listEl = row?.closest('[data-drag-list]') || null;
       s.armed = false;
 
       s.armTimer = setTimeout(() => {
@@ -232,15 +236,23 @@ export function useTouchDrag(onMove, options = {}) {
     e.stopPropagation();
     e.preventDefault();
     const row = e.currentTarget.closest('[data-drag-idx]');
+    const s = stateRef.current;
+    s.listEl = row?.closest('[data-drag-list]') || null;
     activateDrag(idx, row);
   }, [activateDrag]);
 
   // ── Global touchmove/touchend ──
+  // These act as safety nets: the row-level handlers do the primary work,
+  // but if the finger slides outside the row during drag, these ensure
+  // the gesture still completes correctly.
   useEffect(() => {
     const onDocTouchMove = (e) => {
       const s = stateRef.current;
       if (!s.active) return;
       e.preventDefault();
+      // updateHover is already called by the row handler's onTouchMove.
+      // Only call here if the touch has moved outside the original row
+      // (safety net for when the row handler's event doesn't fire).
       const touch = e.touches[0];
       updateHover(touch.clientX, touch.clientY, s);
     };
