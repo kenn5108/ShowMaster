@@ -30,7 +30,8 @@ function load() {
 
   const rows = getDb().prepare(`
     SELECT q.id, q.song_id, q.position, q.is_current, q.played,
-           s.title, s.artist, s.duration_ms, s.rs_name, s.tags, s.key_signature, s.bpm
+           s.title, s.artist, s.duration_ms, s.rs_name, s.tags, s.key_signature, s.bpm,
+           s.rs_available
     FROM queue q
     JOIN songs s ON s.id = q.song_id
     WHERE q.session_id = ?
@@ -54,6 +55,11 @@ function load() {
 function add(songId, position = 'bottom') {
   const db = getDb();
   const sessionId = getSessionId();
+
+  // Block adding unavailable songs
+  const song = db.prepare('SELECT rs_available FROM songs WHERE id = ?').get(songId);
+  if (!song) throw new Error('Song not found');
+  if (!song.rs_available) throw new Error('Cette chanson n\'est plus disponible dans RocketShow');
 
   const currentQueue = getState().queue;
 
