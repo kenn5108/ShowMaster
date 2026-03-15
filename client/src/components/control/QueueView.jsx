@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
-import { formatTime } from '../../utils/format';
+import { formatTime, formatDuration } from '../../utils/format';
 import { useTouchDrag } from '../../hooks/useTouchDrag';
 import Popup from '../shared/Popup';
 
@@ -72,7 +72,14 @@ export default function QueueView() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <h2 style={{ fontSize: 18, flex: 1 }}>File d'attente</h2>
+        <h2 style={{ fontSize: 18, flex: 1 }}>
+          File d'attente
+          {queue.length > 0 && (
+            <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 10 }}>
+              {queue.length} titre{queue.length > 1 ? 's' : ''} — {formatDuration(queue.reduce((sum, q) => sum + (q.duration_ms || 0), 0))}
+            </span>
+          )}
+        </h2>
         {!liveLock && queue.length > 0 && (
           <button className="btn btn-sm btn-secondary" onClick={() => setConfirmClear(true)}>
             Vider la file

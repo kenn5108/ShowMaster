@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
-import { formatTime } from '../../utils/format';
+import { formatTime, formatDuration } from '../../utils/format';
 import { useTouchDrag } from '../../hooks/useTouchDrag';
 import Popup from '../shared/Popup';
 
@@ -70,6 +70,9 @@ export default function MobileQueueDrawer({ open, onClose }) {
           <span className="mobile-drawer-title">File d'attente</span>
           {syncMode && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--warning)', marginLeft: 8 }}>SYNCHRO</span>}
           <span className="mobile-drawer-count">{queue.length}</span>
+          {queue.length > 0 && (
+            <span className="mobile-drawer-duration">{formatDuration(queue.reduce((sum, q) => sum + (q.duration_ms || 0), 0))}</span>
+          )}
           {!liveLock && queue.length > 1 && (
             <button
               className="mobile-drawer-clear"
