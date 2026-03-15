@@ -17,6 +17,7 @@ export default function LibraryView({ onNavigate }) {
   const [popup, setPopup] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [playlists, setPlaylists] = useState([]);
+  const [playlistPicker, setPlaylistPicker] = useState(null);
 
   const loadSongs = useCallback(async () => {
     try {
@@ -78,15 +79,17 @@ export default function LibraryView({ onNavigate }) {
     setContextMenu({
       x, y,
       items: [
-        ...playlists.map(pl => ({
-          label: `Ajouter à "${pl.name}"`,
-          onClick: () => api.post(`/playlists/${pl.id}/items`, { songId: song.id }).catch(() => {}),
-        })),
+        { label: 'Ajouter à une playlist', onClick: () => { api.get('/playlists').then(setPlaylists).catch(() => {}); setPlaylistPicker({ songId: song.id, title: song.title }); } },
         { separator: true },
         { label: 'Éditer les paroles', onClick: () => onNavigate('lyrics', { songId: song.id }) },
         { label: 'Ouvrir la synchro', onClick: () => onNavigate('sync', { songId: song.id }) },
       ],
     });
+  };
+
+  const addToPlaylist = (playlistId, songId) => {
+    api.post(`/playlists/${playlistId}/items`, { songId }).catch(() => {});
+    setPlaylistPicker(null);
   };
 
   const addToQueue = (songId, position) => {
@@ -150,6 +153,37 @@ export default function LibraryView({ onNavigate }) {
 
       {popup && <Popup {...popup} onClose={() => setPopup(null)} />}
       {contextMenu && <ContextMenu {...contextMenu} onClose={() => setContextMenu(null)} />}
+
+      {playlistPicker && (
+        <div className="popup-overlay" onClick={() => setPlaylistPicker(null)}>
+          <div className="popup" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="popup-title">Ajouter à une playlist</div>
+            <div style={{ overflow: 'auto', flex: 1 }}>
+              <div className="popup-actions">
+                {playlists.map(pl => (
+                  <button
+                    key={pl.id}
+                    className="popup-action"
+                    onClick={() => addToPlaylist(pl.id, playlistPicker.songId)}
+                  >
+                    {pl.name}
+                  </button>
+                ))}
+                {playlists.length === 0 && (
+                  <div style={{ padding: 12, color: 'var(--text-muted)', fontSize: 13 }}>Aucune playlist</div>
+                )}
+              </div>
+            </div>
+            <button
+              className="popup-action"
+              onClick={() => setPlaylistPicker(null)}
+              style={{ color: 'var(--text-muted)', marginTop: 8, flexShrink: 0 }}
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

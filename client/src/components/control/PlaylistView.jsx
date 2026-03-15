@@ -18,6 +18,8 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   const [selectedTags, setSelectedTags] = useState(new Set());
   const [popup, setPopup] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
+  const [playlistPicker, setPlaylistPicker] = useState(null);
+  const [allPlaylists, setAllPlaylists] = useState([]);
   const liveLock = state.liveLock;
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
@@ -85,6 +87,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
     setContextMenu({
       x, y,
       items: [
+        { label: 'Ajouter à une playlist', onClick: () => { api.get('/playlists').then(setAllPlaylists).catch(() => {}); setPlaylistPicker({ songId: item.song_id, title: item.title }); } },
         { label: 'Supprimer de la playlist', onClick: () => { api.delete(`/playlists/${playlistId}/items/${item.id}`).then(loadItems); } },
         { separator: true },
         { label: 'Éditer les paroles', onClick: () => onNavigate('lyrics', { songId: item.song_id }) },
@@ -92,6 +95,11 @@ export default function PlaylistView({ playlistId, onNavigate }) {
       ],
     });
   }, [playlistId, onNavigate]);
+
+  const addToPlaylist = (targetPlaylistId, songId) => {
+    api.post(`/playlists/${targetPlaylistId}/items`, { songId }).catch(() => {});
+    setPlaylistPicker(null);
+  };
 
   // ── Touch drag (mobile) with integrated tap + context menu ──
   const touchDrag = useTouchDrag(
@@ -246,6 +254,37 @@ export default function PlaylistView({ playlistId, onNavigate }) {
 
       {popup && <Popup {...popup} onClose={() => setPopup(null)} />}
       {contextMenu && <ContextMenu {...contextMenu} onClose={() => setContextMenu(null)} />}
+
+      {playlistPicker && (
+        <div className="popup-overlay" onClick={() => setPlaylistPicker(null)}>
+          <div className="popup" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="popup-title">Ajouter à une playlist</div>
+            <div style={{ overflow: 'auto', flex: 1 }}>
+              <div className="popup-actions">
+                {allPlaylists.map(pl => (
+                  <button
+                    key={pl.id}
+                    className="popup-action"
+                    onClick={() => addToPlaylist(pl.id, playlistPicker.songId)}
+                  >
+                    {pl.name}
+                  </button>
+                ))}
+                {allPlaylists.length === 0 && (
+                  <div style={{ padding: 12, color: 'var(--text-muted)', fontSize: 13 }}>Aucune playlist</div>
+                )}
+              </div>
+            </div>
+            <button
+              className="popup-action"
+              onClick={() => setPlaylistPicker(null)}
+              style={{ color: 'var(--text-muted)', marginTop: 8, flexShrink: 0 }}
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
