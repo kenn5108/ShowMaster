@@ -161,17 +161,20 @@ async function pause() {
 }
 
 async function stop() {
+  // Set guard BEFORE the await to prevent race with poll cycle
+  songEndHandled = true;
   await rocketshow.transport.stop();
-  songEndHandled = true; // manual stop, don't trigger onSongEnd
-  // Clear is_current so the item becomes movable/removable again
-  queue.clearCurrent();
-  updateNested('playback', { currentSong: null });
+  // IMPORTANT: do NOT clear is_current or currentSong.
+  // Stop = pure stop. The song stays at the head of the queue,
+  // still marked as current, ready to be replayed with Play.
+  // The frontend uses playerState to distinguish PLAYING from STOPPED.
+  logger.info('playback', '[STOP] ── Stopped. Song stays in queue as current.');
 }
 
 async function next() {
   const mode = getState().playback.mode;
+  songEndHandled = true; // set guard BEFORE await to prevent race with poll
   await rocketshow.transport.stop();
-  songEndHandled = true; // we handle advance ourselves, don't trigger onSongEnd
 
   if (mode === 'auto') {
     // Auto: advance and start playing
