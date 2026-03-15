@@ -49,8 +49,19 @@ function getAllForCsv() {
   `).all();
 }
 
+function deleteEntry(historyId) {
+  const db = getDb();
+  const entry = db.prepare('SELECT * FROM history WHERE id = ?').get(historyId);
+  if (!entry) throw new Error('History entry not found');
+  db.prepare('DELETE FROM history WHERE id = ?').run(historyId);
+}
+
 function clearBySession(sessionId) {
   getDb().prepare('DELETE FROM history WHERE session_id = ?').run(sessionId);
 }
 
-module.exports = { record, getBySession, getBySessionForCsv, getAllForCsv, clearBySession };
+function getSessionInfo(sessionId) {
+  return getDb().prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId);
+}
+
+module.exports = { record, getBySession, getBySessionForCsv, getAllForCsv, deleteEntry, clearBySession, getSessionInfo };

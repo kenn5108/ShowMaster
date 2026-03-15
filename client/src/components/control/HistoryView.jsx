@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../../utils/api';
 import { formatTime } from '../../utils/format';
 import { useSocket } from '../../contexts/SocketContext';
+import Popup from '../shared/Popup';
 
 export default function HistoryView() {
   const { state } = useSocket();
@@ -9,13 +10,13 @@ export default function HistoryView() {
   const [selectedSession, setSelectedSession] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   // Load session list on mount
   useEffect(() => {
     api.get('/session/all').then(setSessions).catch(() => {});
   }, [state.session]);
 
-  // When a session is selected, load its history
   const openSession = async (session) => {
     setSelectedSession(session);
     setLoading(true);
@@ -28,15 +29,16 @@ export default function HistoryView() {
     setLoading(false);
   };
 
-  // Quick access: open current session's history
-  const openCurrentSession = () => {
-    if (state.session) {
-      openSession(state.session);
-    }
-  };
-
   const handleAddToQueue = (songId, position) => {
     api.post('/queue/add', { songId, position }).catch(() => {});
+  };
+
+  const handleDeleteEntry = async (entry) => {
+    try {
+      await api.delete(`/history/entry/${entry.id}`);
+      setHistory(prev => prev.filter(h => h.id !== entry.id));
+    } catch {}
+    setConfirmDelete(null);
   };
 
   const backToList = () => {
@@ -95,7 +97,8 @@ export default function HistoryView() {
                 <th>Titre</th>
                 <th>Artiste</th>
                 <th style={{ width: 70, textAlign: 'right' }}>Durée</th>
-                {state.session && <th style={{ width: 60 }}></th>}
+                <th style={{ width: 60, textAlign: 'right' }}>Lecture</th>
+                <th style={{ width: 80 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -107,21 +110,43 @@ export default function HistoryView() {
                   <td style={{ textAlign: 'right' }}>
                     <span className="song-duration">{formatTime(h.duration_ms)}</span>
                   </td>
-                  {state.session && (
-                    <td>
+                  <td style={{ textAlign: 'right', fontSize: 12, color: 'var(--text-muted)' }}>
+                    {formatHour(h.started_at)}
+                  </td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    {state.session && (
                       <button
                         className="btn btn-sm btn-secondary"
                         onClick={() => handleAddToQueue(h.song_id, 'bottom')}
                         title="Remettre en file"
+                        style={{ marginRight: 4 }}
                       >
                         +
                       </button>
-                    </td>
-                  )}
+                    )}
+                    <button
+                      className="btn btn-sm btn-secondary"
+                      onClick={() => setConfirmDelete(h)}
+                      title="Supprimer de l'historique"
+                      style={{ color: 'var(--error)' }}
+                    >
+                      ✕
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        )}
+
+        {confirmDelete && (
+          <Popup
+            title={`Supprimer « ${confirmDelete.title} » de l'historique ?`}
+            actions={[
+              { label: 'Supprimer', className: 'btn-danger', onClick: () => handleDeleteEntry(confirmDelete) },
+            ]}
+            onClose={() => setConfirmDelete(null)}
+          />
         )}
       </div>
     );
@@ -216,5 +241,15 @@ function formatDate(iso) {
     });
   } catch {
     return iso;
+  }
+}
+
+function formatHour(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
+    return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return '';
   }
 }
