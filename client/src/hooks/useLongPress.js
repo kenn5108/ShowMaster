@@ -71,11 +71,17 @@ export function useLongPress(onShortPress, onLongPress, delay = 500) {
 
   const onContextMenu = useCallback((e) => {
     e.preventDefault();
-    // Clear any pending long-press timer (touch)
+    // Mark as long press so that the upcoming touchEnd does NOT fire shortPress.
+    // This is critical when the browser's native contextmenu event fires
+    // BEFORE our JS timer (≈500 ms): the timer gets cleared below and never
+    // sets the flag itself, so we must set it here.
+    isLongPress.current = true;
+    // Clear any pending long-press timer (touch) — it's no longer needed
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
+    window.getSelection()?.removeAllRanges();
     onLongPress?.(e);
   }, [onLongPress]);
 
