@@ -255,8 +255,14 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
         onShortPress?.();
       },
       onContextMenu: (e) => {
-        dbg('PL', `row${idx}.contextMenu`, 'desktop right-click → longPress');
         e.preventDefault();
+        // Block native contextmenu fired by Chrome during touch hold —
+        // only allow real desktop right-click through
+        if (touchUsedRef.current) {
+          dbg('PL', `row${idx}.contextMenu`, 'SKIP (touchUsed guard — native touch contextmenu blocked)');
+          return;
+        }
+        dbg('PL', `row${idx}.contextMenu`, 'desktop right-click → longPress');
         onLongPress?.(e);
       },
     };
