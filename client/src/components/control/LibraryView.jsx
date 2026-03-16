@@ -355,7 +355,7 @@ export default function LibraryView({ onNavigate }) {
             <th className="col-artist-browse" onClick={() => toggleSort('artist')}>
               Artiste {sortBy === 'artist' && (sortDir === 'asc' ? '\u2191' : '\u2193')}
             </th>
-            <th style={{ width: 70, textAlign: 'right' }}>Durée</th>
+            <th className="col-duration-browse" style={{ width: 70, textAlign: 'right' }}>Durée</th>
           </tr>
         </thead>
         <tbody>
@@ -568,7 +568,7 @@ function SongRow({ song, onShortPress, onLongPress, selected, onToggleSelect, sh
         </div>
       </td>
       <td className="col-artist-browse"><span className="song-artist">{song.artist || '\u2014'}</span></td>
-      <td style={{ textAlign: 'right' }}>
+      <td className="col-duration-browse" style={{ textAlign: 'right' }}>
         <span className="song-duration">{formatTime(song.duration_ms)}</span>
       </td>
     </tr>
