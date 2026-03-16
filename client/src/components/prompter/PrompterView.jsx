@@ -124,14 +124,14 @@ export default function PrompterView() {
   const borderColor = negativeMode ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)';
   const accentBar = '#e94560';
   const barTrack = negativeMode ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)';
-  const activeLineBg = 'rgba(233,69,96,0.25)';
+  const activeLineBg = '#e94560';
   const toggleBg = negativeMode ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
   const toggleColor = negativeMode ? '#333' : '#ccc';
 
   return (
     <div style={{ minHeight: '100vh', height: '100dvh', background: bg, color: textActive, display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'background 0.3s, color 0.3s' }}>
       {/* ── Header: current (left) + next (right) ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', paddingTop: 'max(16px, env(safe-area-inset-top, 16px))', background: headerBg, borderBottom: `1px solid ${borderColor}`, flexShrink: 0, gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 24px 12px', paddingTop: `calc(max(16px, env(safe-area-inset-top, 16px)) + 8px)`, background: headerBg, borderBottom: `1px solid ${borderColor}`, flexShrink: 0, gap: 16 }}>
         {/* Left: current song */}
         <div style={{ minWidth: 0, flex: 1 }}>
           {currentSong ? (
