@@ -124,7 +124,7 @@ export default function PrompterView() {
   const borderColor = negativeMode ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)';
   const accentBar = '#e94560';
   const barTrack = negativeMode ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)';
-  const activeLineBg = '#e94560';
+  const activeLineBg = 'rgba(233,69,96,0.75)';
   const toggleBg = negativeMode ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
   const toggleColor = negativeMode ? '#333' : '#ccc';
 
