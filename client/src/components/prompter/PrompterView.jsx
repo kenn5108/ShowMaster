@@ -113,20 +113,20 @@ export default function PrompterView() {
   // ── Color scheme ──
   const bg = negativeMode ? '#f5f5f0' : '#000';
   const textActive = negativeMode ? '#111' : '#fff';
-  const textDimmed = negativeMode ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.25)';
+  const textDimmed = negativeMode ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.55)';
   const textMuted = negativeMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)';
   const headerBg = negativeMode ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.03)';
   const borderColor = negativeMode ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)';
   const accentBar = '#e94560';
   const barTrack = negativeMode ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)';
-  const activeLineBg = negativeMode ? 'rgba(233,69,96,0.1)' : 'rgba(233,69,96,0.12)';
+  const activeLineBg = negativeMode ? 'rgba(255,160,0,0.15)' : 'rgba(255,160,0,0.2)';
   const toggleBg = negativeMode ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
   const toggleColor = negativeMode ? '#333' : '#ccc';
 
   return (
     <div style={{ minHeight: '100vh', height: '100dvh', background: bg, color: textActive, display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'background 0.3s, color 0.3s' }}>
       {/* ── Header: current (left) + next (right) ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 24px', background: headerBg, borderBottom: `1px solid ${borderColor}`, flexShrink: 0, gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', paddingTop: 'max(16px, env(safe-area-inset-top, 16px))', background: headerBg, borderBottom: `1px solid ${borderColor}`, flexShrink: 0, gap: 16 }}>
         {/* Left: current song */}
         <div style={{ minWidth: 0, flex: 1 }}>
           {currentSong ? (
@@ -180,7 +180,7 @@ export default function PrompterView() {
                   fontSize,
                   fontWeight: 600,
                   lineHeight: 1.4,
-                  color: textActive,
+                  color: isActive ? textActive : textDimmed,
                   background: isActive ? activeLineBg : 'transparent',
                   borderRadius: isActive ? 8 : 0,
                   padding: isActive ? '2px 12px' : '2px 12px',
