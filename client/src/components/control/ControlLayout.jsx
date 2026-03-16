@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 import Sidebar from './Sidebar';
@@ -258,8 +259,9 @@ export default function ControlLayout() {
       <TransportBar />
       <MobileTransportBar />
 
-      {/* Stage message compose popup */}
-      {stageMsgOpen && (
+      {/* Popups rendered via portal — outside .app-layout flex tree so they
+           stay perfectly fixed to the viewport during playback reflows. */}
+      {stageMsgOpen && createPortal(
         <div className="popup-overlay" onClick={() => setStageMsgOpen(false)}>
           <div className="popup" onClick={(e) => e.stopPropagation()} style={{ minWidth: 340 }}>
             <div className="popup-title">Message plateau</div>
@@ -285,11 +287,11 @@ export default function ControlLayout() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Guard modal — blocks sync/lyrics while playing */}
-      {guardModal && (
+      {guardModal && createPortal(
         <div className="popup-overlay" onClick={() => setGuardModal(false)}>
           <div className="popup" onClick={(e) => e.stopPropagation()}>
             <div className="popup-title">Lecture en cours</div>
@@ -304,7 +306,8 @@ export default function ControlLayout() {
               OK
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
