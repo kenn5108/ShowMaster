@@ -2,45 +2,68 @@ import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 
-// ── Stage message: centered if short, scrolling if long ──
+// ── Stage message: centered if short, continuous ticker if long ──
+// Opaque colors → identical in dark and light mode (theme-independent).
+const BANNER_BG = '#1a1306';
+const BANNER_BORDER = '#7a5a10';
+const BANNER_COLOR = '#f59e0b';
+
 function StageMessageBanner({ message }) {
   const containerRef = useRef(null);
-  const textRef = useRef(null);
+  const measureRef = useRef(null);
   const [needsScroll, setNeedsScroll] = useState(false);
 
   useEffect(() => {
-    if (!containerRef.current || !textRef.current) return;
+    if (!containerRef.current || !measureRef.current) return;
     const cw = containerRef.current.clientWidth;
-    // Measure text without padding-left offset
-    textRef.current.style.paddingLeft = '0';
-    const tw = textRef.current.scrollWidth;
-    const scrolling = tw > cw - 32; // 16px margin each side
-    setNeedsScroll(scrolling);
-    if (scrolling) {
-      textRef.current.style.paddingLeft = '25%';
-    }
+    measureRef.current.style.animation = 'none';
+    measureRef.current.style.paddingLeft = '0';
+    const tw = measureRef.current.scrollWidth;
+    setNeedsScroll(tw > cw - 32);
   }, [message]);
 
   const bannerStyle = {
     flexShrink: 0, overflow: 'hidden', whiteSpace: 'nowrap',
-    background: 'rgba(245, 158, 11, 0.15)',
-    borderTop: '1px solid rgba(245, 158, 11, 0.3)',
+    background: BANNER_BG,
+    borderTop: `1px solid ${BANNER_BORDER}`,
     padding: '8px 0', position: 'relative',
+    paddingBottom: 'max(8px, env(safe-area-inset-bottom, 8px))',
     textAlign: needsScroll ? 'left' : 'center',
   };
 
-  const textStyle = {
-    display: 'inline-block',
+  const textBase = {
     fontSize: 'clamp(18px, 2.5vw, 28px)',
     fontWeight: 700,
-    color: '#f59e0b',
-    paddingLeft: needsScroll ? '25%' : 0,
-    animation: needsScroll ? 'marquee-scroll-prompter 18s linear infinite' : 'none',
+    color: BANNER_COLOR,
+  };
+
+  // Hidden element for measuring text width (no animation, no offset)
+  const measureStyle = {
+    ...textBase,
+    position: 'absolute', visibility: 'hidden', top: 0, left: 0,
+  };
+
+  if (!needsScroll) {
+    return (
+      <div ref={containerRef} style={bannerStyle}>
+        <span ref={measureRef} style={measureStyle}>{message}</span>
+        <span style={textBase}>{message}</span>
+      </div>
+    );
+  }
+
+  // Continuous ticker: two copies so text loops without gap
+  const GAP = '\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0';
+  const tickerStyle = {
+    ...textBase,
+    display: 'inline-block',
+    animation: 'marquee-ticker 14s linear infinite',
   };
 
   return (
     <div ref={containerRef} style={bannerStyle}>
-      <span ref={textRef} style={textStyle}>{message}</span>
+      <span ref={measureRef} style={measureStyle}>{message}</span>
+      <span style={tickerStyle}>{message}{GAP}{message}{GAP}</span>
     </div>
   );
 }

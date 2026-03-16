@@ -4,8 +4,8 @@ import { api } from '../../utils/api';
 
 /**
  * MiniStageBanner — compact version of PrompterView's StageMessageBanner.
- * Same logic: centered if short, scrolling marquee if long.
- * Hardcoded colors (theme-independent).
+ * Same logic: centered if short, continuous ticker if long.
+ * Opaque colors (theme-independent).
  */
 function MiniStageBanner({ message }) {
   const containerRef = useRef(null);
@@ -15,32 +15,39 @@ function MiniStageBanner({ message }) {
   useEffect(() => {
     if (!containerRef.current || !measureRef.current) return;
     const cw = containerRef.current.clientWidth;
+    measureRef.current.style.animation = 'none';
     measureRef.current.style.paddingLeft = '0';
     const tw = measureRef.current.scrollWidth;
     setNeedsScroll(tw > cw - 16);
-    if (tw > cw - 16) {
-      measureRef.current.style.paddingLeft = '25%';
-    }
   }, [message]);
 
   const bannerStyle = {
     flexShrink: 0, overflow: 'hidden', whiteSpace: 'nowrap',
-    background: 'rgba(245, 158, 11, 0.15)',
-    borderTop: '1px solid rgba(245, 158, 11, 0.3)',
+    background: '#1a1306',
+    borderTop: '1px solid #7a5a10',
     padding: '3px 0', position: 'relative', marginTop: 'auto',
     textAlign: needsScroll ? 'left' : 'center',
   };
 
-  const textStyle = {
-    display: 'inline-block',
-    fontSize: 10, fontWeight: 600, color: '#f59e0b',
-    paddingLeft: needsScroll ? '25%' : 0,
-    animation: needsScroll ? 'marquee-scroll-prompter 14s linear infinite' : 'none',
-  };
+  const textBase = { fontSize: 10, fontWeight: 600, color: '#f59e0b' };
+  const measureStyle = { ...textBase, position: 'absolute', visibility: 'hidden', top: 0, left: 0 };
+
+  if (!needsScroll) {
+    return (
+      <div ref={containerRef} style={bannerStyle}>
+        <span ref={measureRef} style={measureStyle}>{message}</span>
+        <span style={textBase}>{message}</span>
+      </div>
+    );
+  }
+
+  const GAP = '\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0';
+  const tickerStyle = { ...textBase, display: 'inline-block', animation: 'marquee-ticker 14s linear infinite' };
 
   return (
     <div ref={containerRef} style={bannerStyle}>
-      <span ref={measureRef} style={textStyle}>{message}</span>
+      <span ref={measureRef} style={measureStyle}>{message}</span>
+      <span style={tickerStyle}>{message}{GAP}{message}{GAP}</span>
     </div>
   );
 }

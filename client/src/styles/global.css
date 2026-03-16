@@ -866,5 +866,11 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
   100% { transform: translateX(-125%); }
 }
 
+/* Continuous ticker: two copies side by side, scroll exactly half */
+@keyframes marquee-ticker {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
 /* Header button — hidden on phone */
 .stage-msg-btn { white-space: nowrap; }
