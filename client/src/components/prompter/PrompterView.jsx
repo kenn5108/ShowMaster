@@ -80,6 +80,7 @@ export default function PrompterView() {
   const [activeLine, setActiveLine] = useState(-1);
   const [negativeMode, setNegativeMode] = useState(false);
   const activeRef = useRef(null);
+  const firstLineRef = useRef(null);
   const lyricsContainerRef = useRef(null);
   const lastSongId = useRef(null);
 
@@ -138,6 +139,16 @@ export default function PrompterView() {
   }, [activeLine]);
   // Reset on song change so next song also starts centered instantly
   useEffect(() => { hasScrolledOnce.current = false; }, [currentSongId]);
+
+  // ── Initial positioning: center first line as soon as lyrics load ──
+  // When activeLine is still -1 (no cue hit yet), the scroll effect above
+  // does nothing because activeRef is null. This effect fills that gap so
+  // the lyrics are already centered before playback starts.
+  useEffect(() => {
+    if (lyrics.length > 0 && activeLine === -1 && firstLineRef.current) {
+      firstLineRef.current.scrollIntoView({ behavior: 'instant', block: 'center' });
+    }
+  }, [lyrics, activeLine]);
 
   // ── Smart font size: biggest that fits the longest line ──
   const [fontSize, setFontSize] = useState(28);
@@ -252,7 +263,7 @@ export default function PrompterView() {
               return (
                 <div
                   key={idx}
-                  ref={isActive ? activeRef : null}
+                  ref={isActive ? activeRef : (idx === 0 ? firstLineRef : null)}
                   style={{
                     fontSize,
                     fontWeight: 600,
