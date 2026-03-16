@@ -125,7 +125,7 @@ export default function TransportBar() {
 
       {/* Transport buttons */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <button className="btn-transport btn-transport-sm" onClick={handleRewind30} title="Retour 30s"><IconRewind30 size={18} /></button>
+        <button className="btn-transport" onClick={handleRewind30} title="Retour 30s"><IconRewind30 size={20} /></button>
         <button className="btn-transport" onClick={handleStop} title="Stop"><IconStop /></button>
         {isPlaying ? (
           <button className="btn-transport active" onClick={handlePause} title="Pause"><IconPause /></button>

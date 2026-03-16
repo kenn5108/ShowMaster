@@ -147,8 +147,8 @@ export default function MobileTransportBar() {
             {playback.mode === 'auto' ? 'AUTO' : 'MAN'}
           </button>
 
-          <button className="mobile-transport-btn mobile-transport-btn-sm" onClick={handleRewind30} title="Retour 30s">
-            <IconRewind30 size={18} />
+          <button className="mobile-transport-btn" onClick={handleRewind30} title="Retour 30s">
+            <IconRewind30 size={20} />
           </button>
 
           <button className="mobile-transport-btn" onClick={handleStop} title="Stop">

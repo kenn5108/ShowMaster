@@ -17,25 +17,58 @@ export default function MobileQueueDrawer({ open, onClose }) {
   const syncMode = !!state.playback?.syncMode;
   const playerState = state.rocketshow?.playerState || 'STOPPED';
   const [confirmClear, setConfirmClear] = useState(false);
+  const [popup, setPopup] = useState(null);
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
   const dragFromEl = useRef(null);
   const dragOverEl = useRef(null);
+
+  // Refs for fresh data in callbacks (avoid stale closures)
+  const queueRef = useRef(queue);
+  queueRef.current = queue;
+  const stateRef = useRef({ liveLock, playerState });
+  stateRef.current = { liveLock, playerState };
 
   const isLocked = (item) =>
     item.is_current === 1 && (playerState === 'PLAYING' || playerState === 'PAUSED');
 
   const pos0Locked = queue[0] && isLocked(queue[0]);
 
+  // ── Context menu (long-press without movement) ──
+  const openContextMenu = useCallback((idx) => {
+    const q = queueRef.current;
+    const s = stateRef.current;
+    const item = q[idx];
+    if (!item) return;
+    if (item.is_current === 1 && (s.playerState === 'PLAYING' || s.playerState === 'PAUSED')) return;
+    if (s.liveLock) return;
+    const headLocked = q[0] && q[0].is_current === 1 && (s.playerState === 'PLAYING' || s.playerState === 'PAUSED');
+    const topPos = headLocked ? 1 : 0;
+    const bottomPos = q.length - 1;
+    const actions = [];
+    if (idx !== topPos) {
+      actions.push({ label: '⬆ Déplacer tout en haut', onClick: () => api.post('/queue/move', { queueItemId: item.id, newPosition: topPos }).catch(() => {}) });
+    }
+    if (idx !== bottomPos) {
+      actions.push({ label: '⬇ Déplacer tout en bas', onClick: () => api.post('/queue/move', { queueItemId: item.id, newPosition: bottomPos }).catch(() => {}) });
+    }
+    if (actions.length > 0) setPopup({ title: item.title, actions });
+  }, []);
+
   // ── Touch drag ──
   const touchDrag = useTouchDrag(useCallback((fromIdx, toIdx) => {
-    const item = queue[fromIdx];
+    const q = queueRef.current;
+    const s = stateRef.current;
+    const item = q[fromIdx];
     if (!item || item.is_current === 1) return;
-    if (liveLock) return;
-    const safePos = pos0Locked && toIdx === 0 ? 1 : toIdx;
+    if (s.liveLock) return;
+    const headLocked = q[0] && q[0].is_current === 1 && (s.playerState === 'PLAYING' || s.playerState === 'PAUSED');
+    const safePos = headLocked && toIdx === 0 ? 1 : toIdx;
     if (safePos === fromIdx) return;
     api.post('/queue/move', { queueItemId: item.id, newPosition: safePos }).catch(() => {});
-  }, [queue, liveLock, pos0Locked]));
+  }, []), {
+    onContextMenu: useCallback((idx) => openContextMenu(idx), [openContextMenu]),
+  });
 
   // ── HTML5 drag fallback ──
   const cleanupDragClasses = () => {
@@ -138,6 +171,7 @@ export default function MobileQueueDrawer({ open, onClose }) {
                   onDragOver={(e) => handleDragOver(e, idx)}
                   onDrop={handleDrop}
                   onDragEnd={handleDragEnd}
+                  onContextMenu={(e) => { e.preventDefault(); if (touchDrag.isTouching()) return; openContextMenu(idx); }}
                   {...(!locked && !liveLock ? touchDrag.rowTouchHandlers(idx) : {})}
                 >
                   <div className="mobile-drawer-item-handle">
@@ -172,6 +206,14 @@ export default function MobileQueueDrawer({ open, onClose }) {
           title="Voulez-vous vraiment vider la file d'attente ?"
           actions={[{ label: 'Vider', onClick: () => api.post('/queue/clear') }]}
           onClose={() => setConfirmClear(false)}
+        />
+      )}
+
+      {popup && (
+        <Popup
+          title={popup.title}
+          actions={popup.actions}
+          onClose={() => setPopup(null)}
         />
       )}
     </>
