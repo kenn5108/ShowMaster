@@ -69,7 +69,7 @@ export default function PrompterView() {
   }, [activeLine]);
 
   // ── Smart font size: biggest that fits the longest line ──
-  const [fontSize, setFontSize] = useState(32);
+  const [fontSize, setFontSize] = useState(28);
   const computeFontSize = useCallback(() => {
     if (!lyricsContainerRef.current || lyrics.length === 0) return;
     const container = lyricsContainerRef.current;
@@ -87,7 +87,7 @@ export default function PrompterView() {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const fontFamily = getComputedStyle(container).fontFamily || 'sans-serif';
-    let lo = 16, hi = 72;
+    let lo = 16, hi = 48;
     while (lo < hi) {
       const mid = Math.ceil((lo + hi) / 2);
       ctx.font = `600 ${mid}px ${fontFamily}`;
@@ -95,7 +95,7 @@ export default function PrompterView() {
       if (w <= maxWidth) lo = mid;
       else hi = mid - 1;
     }
-    setFontSize(Math.max(16, Math.min(lo, 72)));
+    setFontSize(Math.max(16, Math.min(lo, 48)));
   }, [lyrics]);
 
   useEffect(() => { computeFontSize(); }, [computeFontSize]);
@@ -124,7 +124,7 @@ export default function PrompterView() {
   const toggleColor = negativeMode ? '#333' : '#ccc';
 
   return (
-    <div style={{ height: '100vh', height: '100dvh', background: bg, color: textActive, display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'background 0.3s, color 0.3s' }}>
+    <div style={{ minHeight: '100vh', height: '100dvh', background: bg, color: textActive, display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'background 0.3s, color 0.3s' }}>
       {/* ── Header: current (left) + next (right) ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 24px', background: headerBg, borderBottom: `1px solid ${borderColor}`, flexShrink: 0, gap: 16 }}>
         {/* Left: current song */}
@@ -143,8 +143,8 @@ export default function PrompterView() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
           {nextSong && (
             <div style={{ textAlign: 'right', minWidth: 0 }}>
-              <div style={{ fontSize: 11, color: textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>À suivre</div>
-              <div style={{ fontSize: 14, color: textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 280 }}>
+              <div style={{ fontSize: 13, color: textActive, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.7 }}>À suivre</div>
+              <div style={{ fontSize: 17, color: textActive, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}>
                 {nextSong.title}{nextSong.artist ? ` — ${nextSong.artist}` : ''}
               </div>
             </div>
@@ -179,8 +179,8 @@ export default function PrompterView() {
                 style={{
                   fontSize,
                   fontWeight: 600,
-                  lineHeight: 1.8,
-                  color: isActive ? textActive : textDimmed,
+                  lineHeight: 1.4,
+                  color: textActive,
                   background: isActive ? activeLineBg : 'transparent',
                   borderRadius: isActive ? 8 : 0,
                   padding: isActive ? '2px 12px' : '2px 12px',
