@@ -835,17 +835,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
   .mini-prompter-wrapper { cursor: default; }
 }
 
-/* ════════════════════════════════════
-   PROMPTER (full page)
-   ════════════════════════════════════ */
-.prompter-layout { height: 100vh; height: 100dvh; background: #000; color: #fff; display: flex; flex-direction: column; overflow: hidden; }
-.prompter-header { padding: 16px 24px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; }
-.prompter-now-playing { font-size: 20px; font-weight: 700; }
-.prompter-next { font-size: 14px; color: rgba(255,255,255,0.5); margin-top: 4px; }
-.prompter-info { display: flex; gap: 16px; margin-top: 8px; font-size: 13px; color: rgba(255,255,255,0.4); }
-.prompter-lyrics { flex: 1; overflow-y: auto; padding: 40px 24px; text-align: center; }
-.prompter-line { font-size: 24px; line-height: 1.8; color: rgba(255,255,255,0.35); transition: all 0.3s ease; }
-.prompter-line.active { font-size: 32px; font-weight: 700; color: #fff; }
+/* PrompterView uses inline styles — no global classes needed */
 /* ════════════════════════════════════
    STAGE MESSAGE — scrolling marquee
    ════════════════════════════════════ */
