@@ -151,7 +151,7 @@ export default function QueuePanel() {
                 onDragOver={(e) => handleDragOver(e, idx)}
                 onDrop={handleDrop}
                 onDragEnd={handleDragEnd}
-                onContextMenu={(e) => { e.preventDefault(); openContextMenu(idx); }}
+                onContextMenu={(e) => { e.preventDefault(); if (touchDrag.isTouching()) return; openContextMenu(idx); }}
                 {...(!locked && !liveLock ? touchDrag.rowTouchHandlers(idx) : {})}
               >
                 <div className="queue-panel-item-index">
