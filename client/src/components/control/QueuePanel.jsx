@@ -27,6 +27,12 @@ export default function QueuePanel() {
   const dragFromEl = useRef(null);
   const dragOverEl = useRef(null);
 
+  // Stable ref — always points to the latest queue/state for use inside callbacks
+  const queueRef = useRef(queue);
+  queueRef.current = queue;
+  const stateRef = useRef({ liveLock, playerState });
+  stateRef.current = { liveLock, playerState };
+
   // Only locked when actually playing or paused — not just "next in line"
   const isLocked = (item) =>
     item.is_current === 1 && (playerState === 'PLAYING' || playerState === 'PAUSED');
@@ -35,11 +41,17 @@ export default function QueuePanel() {
   const pos0Locked = queue[0] && isLocked(queue[0]);
 
   // ── Context menu (long-press touch / right-click desktop) ──
+  // Reads from refs to always get the freshest queue data, regardless of stale closures
   const openContextMenu = useCallback((idx) => {
-    const item = queue[idx];
-    if (!item || isLocked(item) || liveLock) return;
-    const topPos = pos0Locked ? 1 : 0;
-    const bottomPos = queue.length - 1;
+    const q = queueRef.current;
+    const s = stateRef.current;
+    const item = q[idx];
+    if (!item) return;
+    if (item.is_current === 1 && (s.playerState === 'PLAYING' || s.playerState === 'PAUSED')) return;
+    if (s.liveLock) return;
+    const headLocked = q[0] && q[0].is_current === 1 && (s.playerState === 'PLAYING' || s.playerState === 'PAUSED');
+    const topPos = headLocked ? 1 : 0;
+    const bottomPos = q.length - 1;
     const actions = [];
     if (idx !== topPos) {
       actions.push({ label: '⬆ Déplacer tout en haut', onClick: () => api.post('/queue/move', { queueItemId: item.id, newPosition: topPos }).catch(() => {}) });
@@ -48,17 +60,20 @@ export default function QueuePanel() {
       actions.push({ label: '⬇ Déplacer tout en bas', onClick: () => api.post('/queue/move', { queueItemId: item.id, newPosition: bottomPos }).catch(() => {}) });
     }
     if (actions.length > 0) setPopup({ title: item.title, actions });
-  }, [queue, liveLock, pos0Locked]);
+  }, []);
 
   // ── Touch drag (mobile) ──
   const touchDrag = useTouchDrag(useCallback((fromIdx, toIdx) => {
-    const item = queue[fromIdx];
+    const q = queueRef.current;
+    const s = stateRef.current;
+    const item = q[fromIdx];
     if (!item || item.is_current === 1) return;
-    if (liveLock) return;
-    const safePos = pos0Locked && toIdx === 0 ? 1 : toIdx;
+    if (s.liveLock) return;
+    const headLocked = q[0] && q[0].is_current === 1 && (s.playerState === 'PLAYING' || s.playerState === 'PAUSED');
+    const safePos = headLocked && toIdx === 0 ? 1 : toIdx;
     if (safePos === fromIdx) return;
     api.post('/queue/move', { queueItemId: item.id, newPosition: safePos }).catch(() => {});
-  }, [queue, liveLock, pos0Locked]), {
+  }, []), {
     onContextMenu: useCallback((idx) => openContextMenu(idx), [openContextMenu]),
   });
 
