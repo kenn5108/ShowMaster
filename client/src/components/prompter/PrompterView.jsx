@@ -239,7 +239,7 @@ export default function PrompterView() {
       )}
 
       {/* ── Lyrics ── */}
-      <div ref={lyricsContainerRef} style={{ flex: 1, overflowY: 'auto', padding: '0 24px', textAlign: 'center', touchAction: 'none', overscrollBehavior: 'none', WebkitOverflowScrolling: 'auto' }}
+      <div ref={lyricsContainerRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 24px', textAlign: 'center', touchAction: 'none', overscrollBehavior: 'none', WebkitOverflowScrolling: 'auto' }}
         onTouchStart={e => e.preventDefault()}
         onTouchMove={e => e.preventDefault()}
       >
