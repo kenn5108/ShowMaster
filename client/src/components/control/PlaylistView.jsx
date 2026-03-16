@@ -274,7 +274,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
             <th style={{ width: 40 }} onClick={() => toggleSort('position')}>
               # {sortBy === 'position' && (sortDir === 'asc' ? '\u2191' : '\u2193')}
             </th>
-            <th onClick={() => toggleSort('title')}>
+            <th className="col-title-browse" onClick={() => toggleSort('title')}>
               Titre {sortBy === 'title' && (sortDir === 'asc' ? '\u2191' : '\u2193')}
             </th>
             <th className="col-artist-browse" onClick={() => toggleSort('artist')}>

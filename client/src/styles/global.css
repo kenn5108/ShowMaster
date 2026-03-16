@@ -371,8 +371,9 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 }
 .song-info .badge { flex-shrink: 0; }
 
-/* Artist column: constrained width + truncation */
-.col-artist-browse { width: 150px; }
+/* Column widths — balanced: title a bit wider, artist close behind */
+.col-title-browse { width: 48%; }
+.col-artist-browse { width: 28%; }
 .col-artist-browse .song-artist {
   display: block;
   overflow: hidden;
@@ -380,11 +381,12 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
   white-space: nowrap;
 }
 
-/* Mobile: badges drop to second line, narrower artist */
+/* Mobile: badges drop to second line, auto column widths */
 @media (max-width: 768px) {
   .song-table--browse { table-layout: auto; }
   .song-info { flex-wrap: wrap; }
   .song-info .song-title { width: 100%; }
+  .col-title-browse { width: auto; }
   .col-artist-browse { width: auto; }
 }
 
