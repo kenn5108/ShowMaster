@@ -62,11 +62,16 @@ export default function PrompterView() {
   }, [rs.positionMs, cues]);
 
   // ── Auto-scroll active line to center ──
+  const hasScrolledOnce = useRef(false);
   useEffect(() => {
-    if (activeRef.current) {
-      activeRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+    if (!activeRef.current) return;
+    // First scroll is instant so the line appears centered immediately
+    const behavior = hasScrolledOnce.current ? 'smooth' : 'instant';
+    activeRef.current.scrollIntoView({ behavior, block: 'center' });
+    hasScrolledOnce.current = true;
   }, [activeLine]);
+  // Reset on song change so next song also starts centered instantly
+  useEffect(() => { hasScrolledOnce.current = false; }, [currentSongId]);
 
   // ── Smart font size: biggest that fits the longest line ──
   const [fontSize, setFontSize] = useState(28);
@@ -119,7 +124,7 @@ export default function PrompterView() {
   const borderColor = negativeMode ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)';
   const accentBar = '#e94560';
   const barTrack = negativeMode ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)';
-  const activeLineBg = negativeMode ? 'rgba(255,160,0,0.15)' : 'rgba(255,160,0,0.2)';
+  const activeLineBg = 'rgba(233,69,96,0.25)';
   const toggleBg = negativeMode ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
   const toggleColor = negativeMode ? '#333' : '#ccc';
 
@@ -168,29 +173,38 @@ export default function PrompterView() {
       )}
 
       {/* ── Lyrics ── */}
-      <div ref={lyricsContainerRef} style={{ flex: 1, overflowY: 'auto', padding: '40px 24px', textAlign: 'center' }}>
+      <div ref={lyricsContainerRef} style={{ flex: 1, overflowY: 'auto', padding: '0 24px', textAlign: 'center', touchAction: 'none', overscrollBehavior: 'none', WebkitOverflowScrolling: 'auto' }}
+        onTouchStart={e => e.preventDefault()}
+        onTouchMove={e => e.preventDefault()}
+      >
         {lyrics.length > 0 ? (
-          lyrics.map((line, idx) => {
-            const isActive = idx === activeLine;
-            return (
-              <div
-                key={idx}
-                ref={isActive ? activeRef : null}
-                style={{
-                  fontSize,
-                  fontWeight: 600,
-                  lineHeight: 1.4,
-                  color: isActive ? textActive : textDimmed,
-                  background: isActive ? activeLineBg : 'transparent',
-                  borderRadius: isActive ? 8 : 0,
-                  padding: isActive ? '2px 12px' : '2px 12px',
-                  transition: 'color 0.3s, background 0.3s',
-                }}
-              >
-                {line || '\u00A0'}
-              </div>
-            );
-          })
+          <>
+            {/* Top spacer: pushes first line to vertical center */}
+            <div style={{ height: '50vh' }} aria-hidden="true" />
+            {lyrics.map((line, idx) => {
+              const isActive = idx === activeLine;
+              return (
+                <div
+                  key={idx}
+                  ref={isActive ? activeRef : null}
+                  style={{
+                    fontSize,
+                    fontWeight: 600,
+                    lineHeight: 1.4,
+                    color: isActive ? textActive : textDimmed,
+                    background: isActive ? activeLineBg : 'transparent',
+                    borderRadius: isActive ? 8 : 0,
+                    padding: '2px 12px',
+                    transition: 'color 0.3s, background 0.3s',
+                  }}
+                >
+                  {line || '\u00A0'}
+                </div>
+              );
+            })}
+            {/* Bottom spacer: allows last line to stay centered */}
+            <div style={{ height: '50vh' }} aria-hidden="true" />
+          </>
         ) : (
           <div style={{ color: textDimmed, fontSize: 20, padding: 40 }}>
             {currentSong ? 'Pas de paroles pour ce morceau' : 'En attente d\'un morceau...'}
