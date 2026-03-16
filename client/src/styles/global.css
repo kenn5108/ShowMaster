@@ -445,14 +445,21 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 @media (max-width: 1024px) {
   :root { --right-panel-width: 280px; }
 
-  /* Tablet: enlarge transport buttons for touch */
-  .transport-bar { height: 72px; gap: 14px; }
+  /* ── Tablet: move transport bar from bottom to just below header ──
+     Uses CSS order on the flex-column .app-layout:
+       header (order 0) → transport (order 1) → app-body (order 2)
+     At ≤768px .transport-bar is display:none so this has no phone effect. */
+  .transport-bar {
+    order: 1; height: 72px; gap: 14px;
+    border-top: none; border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+  .app-body { order: 2; }
+
   .btn-transport { width: 48px; height: 48px; font-size: 22px; }
   .progress-bar { height: 6px; }
   .progress-handle { width: 18px; height: 18px; }
   .progress-handle::before { top: -24px; left: -14px; right: -14px; bottom: -10px; }
-  /* Small safety padding so the seek bar doesn't sit flush against the bottom edge */
-  .transport-bar { padding-bottom: 6px; }
 }
 
 @media (max-width: 768px) {
