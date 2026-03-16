@@ -21,6 +21,7 @@ export default function QueuePanel() {
   const syncMode = !!state.playback?.syncMode;
   const playerState = state.rocketshow?.playerState || 'STOPPED';
   const [confirmClear, setConfirmClear] = useState(false);
+  const [popup, setPopup] = useState(null);
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
   const dragFromEl = useRef(null);
@@ -33,6 +34,22 @@ export default function QueuePanel() {
   // Position 0 is protected when the head item is PLAYING or PAUSED
   const pos0Locked = queue[0] && isLocked(queue[0]);
 
+  // ── Context menu (long-press touch / right-click desktop) ──
+  const openContextMenu = useCallback((idx) => {
+    const item = queue[idx];
+    if (!item || isLocked(item) || liveLock) return;
+    const topPos = pos0Locked ? 1 : 0;
+    const bottomPos = queue.length - 1;
+    const actions = [];
+    if (idx !== topPos) {
+      actions.push({ label: '⬆ Déplacer tout en haut', onClick: () => api.post('/queue/move', { queueItemId: item.id, newPosition: topPos }).catch(() => {}) });
+    }
+    if (idx !== bottomPos) {
+      actions.push({ label: '⬇ Déplacer tout en bas', onClick: () => api.post('/queue/move', { queueItemId: item.id, newPosition: bottomPos }).catch(() => {}) });
+    }
+    if (actions.length > 0) setPopup({ title: item.title, actions });
+  }, [queue, liveLock, pos0Locked]);
+
   // ── Touch drag (mobile) ──
   const touchDrag = useTouchDrag(useCallback((fromIdx, toIdx) => {
     const item = queue[fromIdx];
@@ -41,7 +58,9 @@ export default function QueuePanel() {
     const safePos = pos0Locked && toIdx === 0 ? 1 : toIdx;
     if (safePos === fromIdx) return;
     api.post('/queue/move', { queueItemId: item.id, newPosition: safePos }).catch(() => {});
-  }, [queue, liveLock, pos0Locked]));
+  }, [queue, liveLock, pos0Locked]), {
+    onContextMenu: useCallback((idx) => openContextMenu(idx), [openContextMenu]),
+  });
 
   // ── HTML5 drag (desktop) ──
   const cleanupDragClasses = () => {
@@ -132,6 +151,7 @@ export default function QueuePanel() {
                 onDragOver={(e) => handleDragOver(e, idx)}
                 onDrop={handleDrop}
                 onDragEnd={handleDragEnd}
+                onContextMenu={(e) => { e.preventDefault(); openContextMenu(idx); }}
                 {...(!locked && !liveLock ? touchDrag.rowTouchHandlers(idx) : {})}
               >
                 <div className="queue-panel-item-index">
@@ -159,6 +179,8 @@ export default function QueuePanel() {
           })
         )}
       </div>
+
+      {popup && <Popup {...popup} onClose={() => setPopup(null)} />}
 
       {confirmClear && (
         <Popup
