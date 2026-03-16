@@ -255,9 +255,10 @@ export default function PlaylistView({ playlistId, onNavigate }) {
         <thead>
           <tr>
             {isDesktop && (
-              <th style={{ width: 36, padding: '0 4px' }}>
+              <th style={{ width: 32, padding: '0 6px' }}>
                 <input
                   type="checkbox"
+                  className="song-select-check"
                   checked={filteredItems.length > 0 && filteredItems.every(item => selectedSongs.has(item.song_id))}
                   onChange={() => {
                     if (filteredItems.every(item => selectedSongs.has(item.song_id))) {
@@ -266,7 +267,6 @@ export default function PlaylistView({ playlistId, onNavigate }) {
                       setSelectedSongs(new Set(filteredItems.map(item => item.song_id)));
                     }
                   }}
-                  style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--accent)' }}
                   title="Tout sélectionner"
                 />
               </th>
@@ -422,24 +422,24 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
       style={{ cursor: 'pointer' }}
     >
       {showCheckbox && (
-        <td style={{ width: 36, textAlign: 'center', padding: '0 4px' }}>
+        <td style={{ width: 32, textAlign: 'center', padding: '0 6px' }}>
           <input
             type="checkbox"
+            className="song-select-check"
             checked={!!selected}
             onChange={(e) => { e.stopPropagation(); onToggleSelect?.(item.song_id); }}
             onClick={(e) => e.stopPropagation()}
-            style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--accent)' }}
           />
         </td>
       )}
       <td>
         <span style={{ color: 'var(--text-muted)' }}>{item.position + 1}</span>
       </td>
-      <td>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <span className="song-title">{item.title}</span>
-          {item.key_signature && <span className="badge badge-key">{item.key_signature}</span>}
-          {item.bpm && <span className="badge badge-bpm">{item.bpm} BPM</span>}
+      <td style={{ maxWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className="song-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{item.title}</span>
+          {item.key_signature && <span className="badge badge-key" style={{ flexShrink: 0 }}>{item.key_signature}</span>}
+          {item.bpm && <span className="badge badge-bpm" style={{ flexShrink: 0 }}>{item.bpm} BPM</span>}
         </div>
       </td>
       <td><span className="song-artist">{item.artist || '—'}</span></td>

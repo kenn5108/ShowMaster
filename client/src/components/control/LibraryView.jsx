@@ -333,9 +333,10 @@ export default function LibraryView({ onNavigate }) {
         <thead>
           <tr>
             {isDesktop && (
-              <th style={{ width: 36, padding: '0 4px' }}>
+              <th style={{ width: 32, padding: '0 6px' }}>
                 <input
                   type="checkbox"
+                  className="song-select-check"
                   checked={filteredSongs.length > 0 && filteredSongs.every(s => selectedSongs.has(s.id))}
                   onChange={() => {
                     if (filteredSongs.every(s => selectedSongs.has(s.id))) {
@@ -344,7 +345,6 @@ export default function LibraryView({ onNavigate }) {
                       setSelectedSongs(new Set(filteredSongs.map(s => s.id)));
                     }
                   }}
-                  style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--accent)' }}
                   title="Tout sélectionner"
                 />
               </th>
@@ -549,22 +549,22 @@ function SongRow({ song, onShortPress, onLongPress, selected, onToggleSelect, sh
       style={{ cursor: 'pointer', opacity: missing ? 0.45 : 1 }}
     >
       {showCheckbox && (
-        <td style={{ width: 36, textAlign: 'center', padding: '0 4px' }}>
+        <td style={{ width: 32, textAlign: 'center', padding: '0 6px' }}>
           <input
             type="checkbox"
+            className="song-select-check"
             checked={!!selected}
             onChange={(e) => { e.stopPropagation(); onToggleSelect?.(song.id); }}
             onClick={(e) => e.stopPropagation()}
-            style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--accent)' }}
           />
         </td>
       )}
-      <td>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <span className="song-title">{song.title}</span>
-          {missing && <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>MANQUANTE</span>}
-          {song.key_signature && <span className="badge badge-key">{song.key_signature}</span>}
-          {song.bpm && <span className="badge badge-bpm">{song.bpm} BPM</span>}
+      <td style={{ maxWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className="song-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{song.title}</span>
+          {missing && <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 600, flexShrink: 0 }}>MANQUANTE</span>}
+          {song.key_signature && <span className="badge badge-key" style={{ flexShrink: 0 }}>{song.key_signature}</span>}
+          {song.bpm && <span className="badge badge-bpm" style={{ flexShrink: 0 }}>{song.bpm} BPM</span>}
         </div>
       </td>
       <td><span className="song-artist">{song.artist || '\u2014'}</span></td>

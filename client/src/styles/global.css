@@ -301,7 +301,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
   cursor: pointer; user-select: none;
 }
 .song-table th:hover { color: var(--text-secondary); }
-.song-table td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: top; }
+.song-table td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: middle; }
 .song-table tr {
   transition: background 0.1s;
   -webkit-user-select: none; user-select: none; /* prevent text selection on long press */
@@ -327,6 +327,32 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 .song-artist { color: var(--text-secondary); font-size: 13px; }
 .song-meta { margin-top: 4px; }
 .song-duration { color: var(--text-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+/* Custom checkbox for multi-select (Desktop) */
+.song-select-check {
+  appearance: none; -webkit-appearance: none;
+  width: 18px; height: 18px;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  vertical-align: middle;
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s;
+}
+.song-select-check:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.song-select-check:checked::after {
+  content: '✓';
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff; font-size: 11px; font-weight: 700; line-height: 1;
+}
+.song-select-check:hover { border-color: var(--text-muted); }
+.song-select-check:checked:hover { border-color: var(--accent); }
 
 /* Drag handles */
 .drag-handle { cursor: grab; color: var(--text-muted); font-size: 18px; padding: 8px 4px; touch-action: none; }
