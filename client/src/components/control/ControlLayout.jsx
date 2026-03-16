@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 import Sidebar from './Sidebar';
@@ -184,21 +184,6 @@ export default function ControlLayout() {
   }, []);
   const layoutMode = vpWidth <= 768 ? 'PHONE' : isCoarse ? 'TABLET' : 'DESKTOP';
 
-  // ── Fullscreen toggle ──
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  useEffect(() => {
-    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', onChange);
-    return () => document.removeEventListener('fullscreenchange', onChange);
-  }, []);
-  const toggleFullscreen = useCallback(() => {
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
-    } else {
-      document.documentElement.requestFullscreen().catch(() => {});
-    }
-  }, []);
-
   return (
     <div className="app-layout">
       {/* Header */}
@@ -247,13 +232,6 @@ export default function ControlLayout() {
               Message plateau
             </button>
           )}
-          <button
-            className="btn-icon fullscreen-toggle"
-            onClick={toggleFullscreen}
-            title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
-          >
-            {isFullscreen ? '⊗' : '⛶'}
-          </button>
         </div>
       </header>
 

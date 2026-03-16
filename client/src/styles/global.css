@@ -69,8 +69,6 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 .app-header h1 { font-size: 16px; font-weight: 700; color: var(--accent); }
 .header-venue { font-size: 12px; color: var(--text-muted); margin-right: auto; }
 .header-status { display: flex; align-items: center; gap: 6px; }
-.fullscreen-toggle { width: 32px; height: 32px; font-size: 16px; color: var(--text-muted); }
-.fullscreen-toggle:hover { color: var(--text-primary); }
 .sidebar-toggle { width: 36px; height: 36px; font-size: 20px; display: none; }
 .right-panel-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -449,13 +447,19 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
    Moves transport bar from bottom to just below the header via flex order,
    and enlarges touch targets (buttons, progress handle). */
 @media (pointer: coarse) and (min-width: 769px) {
-  /* Position: header (order 0, default) → transport (order 1) → body (order 2) */
+  /* Tablet layout (flex order on .app-layout column):
+     transport (order 1) → body (order 2) → header-as-footer (order 3)
+     Puts controls at top, actions at bottom — avoids system gesture zone. */
   .transport-bar {
     order: 1; height: 72px; gap: 14px;
     border-top: none; border-bottom: 1px solid var(--border);
     padding-bottom: 0;
   }
   .app-body { order: 2; }
+  .app-header {
+    order: 3;
+    border-bottom: none; border-top: 1px solid var(--border);
+  }
 
   /* Larger touch targets */
   .btn-transport { width: 48px; height: 48px; font-size: 22px; }
