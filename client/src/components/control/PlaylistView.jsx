@@ -8,8 +8,22 @@ import Popup from '../shared/Popup';
 import ContextMenu from '../shared/ContextMenu';
 import TagFilter, { filterByTags } from '../shared/TagFilter';
 
+function useIsDesktop() {
+  const [desktop, setDesktop] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(pointer: fine) and (min-width: 769px)').matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(pointer: fine) and (min-width: 769px)');
+    const handler = (e) => setDesktop(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+  return desktop;
+}
+
 export default function PlaylistView({ playlistId, onNavigate }) {
   const { state } = useSocket();
+  const isDesktop = useIsDesktop();
   const [playlist, setPlaylist] = useState(null);
   const [items, setItems] = useState([]);
   const [sortBy, setSortBy] = useState('position');
@@ -20,6 +34,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   const [contextMenu, setContextMenu] = useState(null);
   const [playlistPicker, setPlaylistPicker] = useState(null);
   const [allPlaylists, setAllPlaylists] = useState([]);
+  const [selectedSongs, setSelectedSongs] = useState(new Set());
   const liveLock = state.liveLock;
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
@@ -101,6 +116,20 @@ export default function PlaylistView({ playlistId, onNavigate }) {
     setPlaylistPicker(null);
   };
 
+  // ── Multi-select (Desktop only) ──
+  const toggleSelect = (songId) => {
+    setSelectedSongs(prev => {
+      const next = new Set(prev);
+      if (next.has(songId)) next.delete(songId);
+      else next.add(songId);
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedSongs(new Set());
+
+  useEffect(() => { clearSelection(); }, [search, selectedTags, sortBy, sortDir, playlistId]);
+
   // ── Touch drag (mobile) with integrated tap + context menu ──
   const touchDrag = useTouchDrag(
     useCallback((fromIdx, toIdx) => {
@@ -177,6 +206,17 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   }
   filteredItems = filterByTags(filteredItems, selectedTags);
 
+  const addBatchToQueue = async (position) => {
+    const songIds = filteredItems
+      .filter(item => selectedSongs.has(item.song_id))
+      .map(item => item.song_id);
+    if (songIds.length === 0) return;
+    try {
+      await api.post('/queue/add-batch', { songIds, position });
+    } catch {}
+    clearSelection();
+  };
+
   if (!playlist) return <div style={{ padding: 40, color: 'var(--text-muted)' }}>Chargement...</div>;
 
   const effectiveCanDrag = canDrag && !search && selectedTags.size === 0;
@@ -214,6 +254,23 @@ export default function PlaylistView({ playlistId, onNavigate }) {
       <table className="song-table">
         <thead>
           <tr>
+            {isDesktop && (
+              <th style={{ width: 36, padding: '0 4px' }}>
+                <input
+                  type="checkbox"
+                  checked={filteredItems.length > 0 && filteredItems.every(item => selectedSongs.has(item.song_id))}
+                  onChange={() => {
+                    if (filteredItems.every(item => selectedSongs.has(item.song_id))) {
+                      clearSelection();
+                    } else {
+                      setSelectedSongs(new Set(filteredItems.map(item => item.song_id)));
+                    }
+                  }}
+                  style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--accent)' }}
+                  title="Tout sélectionner"
+                />
+              </th>
+            )}
             <th style={{ width: 50 }} onClick={() => toggleSort('position')}>
               # {sortBy === 'position' && (sortDir === 'asc' ? '\u2191' : '\u2193')}
             </th>
@@ -241,10 +298,36 @@ export default function PlaylistView({ playlistId, onNavigate }) {
               isTouching={touchDrag.isTouching}
               onShortPress={() => handleShortPress(item)}
               onLongPress={(e) => handleLongPress(item, e)}
+              selected={selectedSongs.has(item.song_id)}
+              onToggleSelect={toggleSelect}
+              showCheckbox={isDesktop}
             />
           ))}
         </tbody>
       </table>
+
+      {/* ── Floating selection bar (Desktop only) ── */}
+      {isDesktop && selectedSongs.size > 0 && (
+        <div style={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--bg-card)', border: '1px solid var(--border)',
+          borderRadius: 12, padding: '10px 20px',
+          display: 'flex', alignItems: 'center', gap: 12,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+          zIndex: 1000, fontSize: 13,
+        }}>
+          <span style={{ fontWeight: 600 }}>{selectedSongs.size} sélectionné{selectedSongs.size > 1 ? 's' : ''}</span>
+          <button className="btn btn-sm btn-primary" onClick={() => addBatchToQueue('top')}>
+            ⬆ En haut de file
+          </button>
+          <button className="btn btn-sm btn-primary" onClick={() => addBatchToQueue('bottom')}>
+            ⬇ En bas de file
+          </button>
+          <button className="btn btn-sm btn-secondary" onClick={clearSelection}>
+            Annuler
+          </button>
+        </div>
+      )}
 
       {filteredItems.length === 0 && (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
@@ -289,8 +372,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   );
 }
 
-function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, onDragEnd, dragRowHandlers, isTouching, onShortPress, onLongPress }) {
-  const tags = tryParseJson(item.tags, []);
+function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, onDragEnd, dragRowHandlers, isTouching, onShortPress, onLongPress, selected, onToggleSelect, showCheckbox }) {
   const touchUsedRef = useRef(false);
 
   // useLongPress — used ONLY when canDrag is false (non-drag mode: filtered, sorted, locked)
@@ -339,13 +421,23 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
       {...rowEvents}
       style={{ cursor: 'pointer' }}
     >
+      {showCheckbox && (
+        <td style={{ width: 36, textAlign: 'center', padding: '0 4px' }}>
+          <input
+            type="checkbox"
+            checked={!!selected}
+            onChange={(e) => { e.stopPropagation(); onToggleSelect?.(item.song_id); }}
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--accent)' }}
+          />
+        </td>
+      )}
       <td>
         <span style={{ color: 'var(--text-muted)' }}>{item.position + 1}</span>
       </td>
       <td>
-        <div className="song-title">{item.title}</div>
-        <div className="song-meta">
-          {tags.map((t, i) => <span key={i} className="badge">{t}</span>)}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span className="song-title">{item.title}</span>
           {item.key_signature && <span className="badge badge-key">{item.key_signature}</span>}
           {item.bpm && <span className="badge badge-bpm">{item.bpm} BPM</span>}
         </div>

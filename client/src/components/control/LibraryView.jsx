@@ -7,8 +7,23 @@ import Popup from '../shared/Popup';
 import ContextMenu from '../shared/ContextMenu';
 import TagFilter, { filterByTags } from '../shared/TagFilter';
 
+// Desktop = fine pointer + wide screen (no touch tablets)
+function useIsDesktop() {
+  const [desktop, setDesktop] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(pointer: fine) and (min-width: 769px)').matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(pointer: fine) and (min-width: 769px)');
+    const handler = (e) => setDesktop(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+  return desktop;
+}
+
 export default function LibraryView({ onNavigate }) {
   const { state } = useSocket();
+  const isDesktop = useIsDesktop();
   const [songs, setSongs] = useState([]);
   const [sortBy, setSortBy] = useState('title');
   const [sortDir, setSortDir] = useState('asc');
@@ -18,6 +33,7 @@ export default function LibraryView({ onNavigate }) {
   const [contextMenu, setContextMenu] = useState(null);
   const [playlists, setPlaylists] = useState([]);
   const [playlistPicker, setPlaylistPicker] = useState(null);
+  const [selectedSongs, setSelectedSongs] = useState(new Set());
 
   // Sync result state
   const [syncResult, setSyncResult] = useState(null);
@@ -210,6 +226,33 @@ export default function LibraryView({ onNavigate }) {
     api.post('/queue/add', { songId, position }).catch(() => {});
   };
 
+  // ── Multi-select (Desktop only) ──
+  const toggleSelect = (songId) => {
+    setSelectedSongs(prev => {
+      const next = new Set(prev);
+      if (next.has(songId)) next.delete(songId);
+      else next.add(songId);
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedSongs(new Set());
+
+  // Clear selection when search/tags/sort change
+  useEffect(() => { clearSelection(); }, [search, selectedTags, sortBy, sortDir]);
+
+  const addBatchToQueue = async (position) => {
+    // Collect selected song IDs in display order
+    const songIds = filteredSongs
+      .filter(s => selectedSongs.has(s.id) && s.rs_available)
+      .map(s => s.id);
+    if (songIds.length === 0) return;
+    try {
+      await api.post('/queue/add-batch', { songIds, position });
+    } catch {}
+    clearSelection();
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
@@ -289,6 +332,23 @@ export default function LibraryView({ onNavigate }) {
       <table className="song-table">
         <thead>
           <tr>
+            {isDesktop && (
+              <th style={{ width: 36, padding: '0 4px' }}>
+                <input
+                  type="checkbox"
+                  checked={filteredSongs.length > 0 && filteredSongs.every(s => selectedSongs.has(s.id))}
+                  onChange={() => {
+                    if (filteredSongs.every(s => selectedSongs.has(s.id))) {
+                      clearSelection();
+                    } else {
+                      setSelectedSongs(new Set(filteredSongs.map(s => s.id)));
+                    }
+                  }}
+                  style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--accent)' }}
+                  title="Tout sélectionner"
+                />
+              </th>
+            )}
             <th onClick={() => toggleSort('title')}>
               Titre {sortBy === 'title' && (sortDir === 'asc' ? '\u2191' : '\u2193')}
             </th>
@@ -305,10 +365,36 @@ export default function LibraryView({ onNavigate }) {
               song={song}
               onShortPress={() => handleShortPress(song)}
               onLongPress={(e) => handleLongPress(song, e)}
+              selected={selectedSongs.has(song.id)}
+              onToggleSelect={toggleSelect}
+              showCheckbox={isDesktop}
             />
           ))}
         </tbody>
       </table>
+
+      {/* ── Floating selection bar (Desktop only) ── */}
+      {isDesktop && selectedSongs.size > 0 && (
+        <div style={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--bg-card)', border: '1px solid var(--border)',
+          borderRadius: 12, padding: '10px 20px',
+          display: 'flex', alignItems: 'center', gap: 12,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+          zIndex: 1000, fontSize: 13,
+        }}>
+          <span style={{ fontWeight: 600 }}>{selectedSongs.size} sélectionné{selectedSongs.size > 1 ? 's' : ''}</span>
+          <button className="btn btn-sm btn-primary" onClick={() => addBatchToQueue('top')}>
+            ⬆ En haut de file
+          </button>
+          <button className="btn btn-sm btn-primary" onClick={() => addBatchToQueue('bottom')}>
+            ⬇ En bas de file
+          </button>
+          <button className="btn btn-sm btn-secondary" onClick={clearSelection}>
+            Annuler
+          </button>
+        </div>
+      )}
 
       {filteredSongs.length === 0 && (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
@@ -453,8 +539,7 @@ export default function LibraryView({ onNavigate }) {
   );
 }
 
-function SongRow({ song, onShortPress, onLongPress }) {
-  const tags = tryParseJson(song.tags, []);
+function SongRow({ song, onShortPress, onLongPress, selected, onToggleSelect, showCheckbox }) {
   const pressHandlers = useLongPress(onShortPress, onLongPress);
   const missing = !song.rs_available;
 
@@ -463,13 +548,21 @@ function SongRow({ song, onShortPress, onLongPress }) {
       {...pressHandlers}
       style={{ cursor: 'pointer', opacity: missing ? 0.45 : 1 }}
     >
+      {showCheckbox && (
+        <td style={{ width: 36, textAlign: 'center', padding: '0 4px' }}>
+          <input
+            type="checkbox"
+            checked={!!selected}
+            onChange={(e) => { e.stopPropagation(); onToggleSelect?.(song.id); }}
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--accent)' }}
+          />
+        </td>
+      )}
       <td>
-        <div className="song-title">
-          {song.title}
-          {missing && <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>MANQUANTE</span>}
-        </div>
-        <div className="song-meta">
-          {tags.map((t, i) => <span key={i} className="badge">{t}</span>)}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span className="song-title">{song.title}</span>
+          {missing && <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>MANQUANTE</span>}
           {song.key_signature && <span className="badge badge-key">{song.key_signature}</span>}
           {song.bpm && <span className="badge badge-bpm">{song.bpm} BPM</span>}
         </div>

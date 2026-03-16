@@ -92,6 +92,58 @@ function add(songId, position = 'bottom') {
 }
 
 /**
+ * Add multiple songs to the queue in one operation, preserving order.
+ * @param {number[]} songIds - ordered list of song IDs
+ * @param {'top'|'bottom'} position
+ */
+function addBatch(songIds, position = 'bottom') {
+  const db = getDb();
+  const sessionId = getSessionId();
+
+  // Filter out unavailable songs
+  const available = songIds.filter(id => {
+    const song = db.prepare('SELECT rs_available FROM songs WHERE id = ?').get(id);
+    return song && song.rs_available;
+  });
+  if (available.length === 0) return load();
+
+  const currentQueue = getState().queue;
+
+  if (position === 'top') {
+    // Shift existing items down to make room for all new songs
+    db.prepare(`
+      UPDATE queue SET position = position + ?
+      WHERE session_id = ? AND position >= 1
+    `).run(available.length, sessionId);
+
+    const startPos = currentQueue.length === 0 ? 0 : 1;
+    const stmt = db.prepare('INSERT INTO queue (session_id, song_id, position) VALUES (?, ?, ?)');
+    const txn = db.transaction(() => {
+      available.forEach((songId, i) => {
+        stmt.run(sessionId, songId, startPos + i);
+      });
+    });
+    txn();
+  } else {
+    const maxRow = db.prepare(
+      'SELECT COALESCE(MAX(position), -1) as maxPos FROM queue WHERE session_id = ?'
+    ).get(sessionId);
+    let pos = (maxRow?.maxPos ?? -1) + 1;
+
+    const stmt = db.prepare('INSERT INTO queue (session_id, song_id, position) VALUES (?, ?, ?)');
+    const txn = db.transaction(() => {
+      available.forEach((songId) => {
+        stmt.run(sessionId, songId, pos++);
+      });
+    });
+    txn();
+  }
+
+  logger.info('queue', `Batch added ${available.length} songs at ${position}`);
+  return load();
+}
+
+/**
  * Remove a song from the queue (cannot remove current song).
  */
 function remove(queueItemId) {
@@ -304,4 +356,4 @@ function tryParseJson(str, fallback) {
   try { return JSON.parse(str); } catch { return fallback; }
 }
 
-module.exports = { load, add, remove, move, setCurrent, clearCurrent, advance, clear, loadFromPlaylist, removeHead };
+module.exports = { load, add, addBatch, remove, move, setCurrent, clearCurrent, advance, clear, loadFromPlaylist, removeHead };

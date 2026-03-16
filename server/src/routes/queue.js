@@ -22,6 +22,20 @@ router.post('/add', (req, res) => {
   }
 });
 
+router.post('/add-batch', (req, res) => {
+  try {
+    const { songIds, position = 'bottom' } = req.body;
+    if (!Array.isArray(songIds) || songIds.length === 0) {
+      return res.status(400).json({ error: 'songIds array required' });
+    }
+    const q = queue.addBatch(songIds, position);
+    req.app.get('io').emit('state:update', { queue: q });
+    res.json(q);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 router.post('/remove', (req, res) => {
   try {
     if (getState().liveLock) {
