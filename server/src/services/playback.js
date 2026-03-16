@@ -175,7 +175,7 @@ function onSongEnd() {
     logger.info('playback', `Song ended: ${currentSong.title}`);
   }
 
-  const mode = s.playback.mode;
+  const mode = getState().playback.mode;
   if (mode === 'auto') {
     advanceToNext();
   } else {

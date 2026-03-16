@@ -11,6 +11,7 @@ export default function HistoryView() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [popup, setPopup] = useState(null);
 
   // Load session list on mount
   useEffect(() => {
@@ -29,8 +30,20 @@ export default function HistoryView() {
     setLoading(false);
   };
 
-  const handleAddToQueue = (songId, position) => {
-    api.post('/queue/add', { songId, position }).catch(() => {});
+  const handleSongTap = (h) => {
+    if (!state.session) return;
+    const queue = state.queue || [];
+    if (queue.length === 0) {
+      api.post('/queue/add', { songId: h.song_id, position: 'bottom' }).catch(() => {});
+    } else {
+      setPopup({
+        title: h.title,
+        actions: [
+          { label: '⬆ Ajouter en haut de file', onClick: () => api.post('/queue/add', { songId: h.song_id, position: 'top' }).catch(() => {}) },
+          { label: '⬇ Ajouter en bas de file', onClick: () => api.post('/queue/add', { songId: h.song_id, position: 'bottom' }).catch(() => {}) },
+        ],
+      });
+    }
   };
 
   const handleDeleteEntry = async (entry) => {
@@ -98,12 +111,16 @@ export default function HistoryView() {
                 <th>Artiste</th>
                 <th style={{ width: 70, textAlign: 'right' }}>Durée</th>
                 <th style={{ width: 60, textAlign: 'right' }}>Lecture</th>
-                <th style={{ width: 80 }}></th>
+                <th style={{ width: 40 }}></th>
               </tr>
             </thead>
             <tbody>
               {history.map((h, idx) => (
-                <tr key={h.id}>
+                <tr
+                  key={h.id}
+                  onClick={() => state.session && handleSongTap(h)}
+                  style={{ cursor: state.session ? 'pointer' : 'default' }}
+                >
                   <td style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
                   <td><div className="song-title">{h.title}</div></td>
                   <td><span className="song-artist">{h.artist || '—'}</span></td>
@@ -113,20 +130,10 @@ export default function HistoryView() {
                   <td style={{ textAlign: 'right', fontSize: 12, color: 'var(--text-muted)' }}>
                     {formatHour(h.started_at)}
                   </td>
-                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    {state.session && (
-                      <button
-                        className="btn btn-sm btn-secondary"
-                        onClick={() => handleAddToQueue(h.song_id, 'bottom')}
-                        title="Remettre en file"
-                        style={{ marginRight: 4 }}
-                      >
-                        +
-                      </button>
-                    )}
+                  <td style={{ textAlign: 'right' }}>
                     <button
                       className="btn btn-sm btn-secondary"
-                      onClick={() => setConfirmDelete(h)}
+                      onClick={(e) => { e.stopPropagation(); setConfirmDelete(h); }}
                       title="Supprimer de l'historique"
                       style={{ color: 'var(--error)' }}
                     >
@@ -138,6 +145,8 @@ export default function HistoryView() {
             </tbody>
           </table>
         )}
+
+        {popup && <Popup {...popup} onClose={() => setPopup(null)} />}
 
         {confirmDelete && (
           <Popup
