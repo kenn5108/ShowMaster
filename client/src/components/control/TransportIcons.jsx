@@ -33,6 +33,17 @@ export function IconPause({ size = 20 }) {
   );
 }
 
+export function IconRewind30({ size = 20 }) {
+  return (
+    <svg style={S} width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      {/* Circular arrow */}
+      <path d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z" />
+      {/* "30" text */}
+      <text x="12" y="16.5" textAnchor="middle" fontSize="7.5" fontWeight="700" fontFamily="sans-serif" fill="currentColor">30</text>
+    </svg>
+  );
+}
+
 export function IconNext({ size = 20 }) {
   return (
     <svg style={S} width={size} height={size} viewBox="0 0 24 24" fill="currentColor">

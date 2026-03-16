@@ -1,14 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 import { formatTime } from '../../utils/format';
-import { IconStop, IconPlay, IconPause, IconNext } from './TransportIcons';
+import { IconStop, IconPlay, IconPause, IconNext, IconRewind30 } from './TransportIcons';
 import MobileQueueDrawer from './MobileQueueDrawer';
 
 /**
  * MobileTransportBar — fixed bottom bar visible only on mobile (≤768px).
  * Always accessible regardless of sidebar / right-panel state.
- * Big touch-friendly buttons: Stop, Play/Pause, Next, Auto/Manual toggle.
+ * Big touch-friendly buttons: Rewind30, Stop, Play/Pause, Next, Auto/Manual toggle.
  * Chevron button opens MobileQueueDrawer (bottom sheet with full queue).
  */
 export default function MobileTransportBar() {
@@ -21,7 +21,6 @@ export default function MobileTransportBar() {
   const syncMode = !!playback.syncMode;
   const isPlaying = rs.playerState === 'PLAYING';
   const isPaused = rs.playerState === 'PAUSED';
-  const isActive = isPlaying || isPaused;
   const progress = rs.durationMs > 0 ? (rs.positionMs / rs.durationMs) * 100 : 0;
 
   // Current song: sync title → playing item → queue head → null
@@ -31,6 +30,61 @@ export default function MobileTransportBar() {
     return queue[0] || null;
   }, [playback.currentSong, playback.syncMode, syncMode, queue]);
 
+  // ── Drag-seek state ──
+  const barRef = useRef(null);
+  const [dragging, setDragging] = useState(false);
+  const [dragPct, setDragPct] = useState(0);
+
+  const pctFromEvent = useCallback((clientX) => {
+    const rect = barRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0) return 0;
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  }, []);
+
+  // Mouse drag
+  const onHandleMouseDown = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(true);
+    setDragPct(pctFromEvent(e.clientX));
+  }, [pctFromEvent]);
+
+  useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e) => {
+      e.preventDefault();
+      const x = e.clientX ?? e.touches?.[0]?.clientX;
+      if (x != null) setDragPct(pctFromEvent(x));
+    };
+    const onUp = (e) => {
+      const x = e.clientX ?? e.changedTouches?.[0]?.clientX;
+      const pct = pctFromEvent(x);
+      setDragging(false);
+      if (rs.durationMs > 0) {
+        api.post('/playback/seek', { positionMs: Math.floor(pct * rs.durationMs) }).catch(() => {});
+      }
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onUp);
+    return () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onUp);
+    };
+  }, [dragging, pctFromEvent, rs.durationMs]);
+
+  // Touch drag on handle
+  const onHandleTouchStart = useCallback((e) => {
+    e.stopPropagation();
+    setDragging(true);
+    setDragPct(pctFromEvent(e.touches[0].clientX));
+  }, [pctFromEvent]);
+
+  const displayPct = dragging ? dragPct * 100 : progress;
+
   const handlePlay = () => api.post('/playback/play').catch(() => {});
   const handlePause = () => api.post('/playback/pause').catch(() => {});
   const handleStop = () => api.post('/playback/stop').catch(() => {});
@@ -38,12 +92,9 @@ export default function MobileTransportBar() {
   const toggleMode = () => { if (!syncMode) api.post('/playback/mode', {
     mode: playback.mode === 'auto' ? 'manual' : 'auto'
   }).catch(() => {}); };
-
-  const handleSeek = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const pct = (e.clientX || e.touches?.[0]?.clientX || 0) - rect.left;
-    const posMs = Math.floor((pct / rect.width) * rs.durationMs);
-    if (posMs >= 0) api.post('/playback/seek', { positionMs: posMs }).catch(() => {});
+  const handleRewind30 = () => {
+    const newPos = Math.max(0, rs.positionMs - 30000);
+    api.post('/playback/seek', { positionMs: newPos }).catch(() => {});
   };
 
   return (
@@ -70,14 +121,20 @@ export default function MobileTransportBar() {
             )}
           </div>
           <div className="mobile-transport-time">
-            <span>{formatTime(rs.positionMs)}</span>
+            <span>{dragging ? formatTime(Math.floor(dragPct * rs.durationMs)) : formatTime(rs.positionMs)}</span>
             <span>{formatTime(rs.durationMs)}</span>
           </div>
         </div>
 
-        {/* Progress bar */}
-        <div className="mobile-transport-progress" onClick={handleSeek} onTouchEnd={handleSeek}>
-          <div className="mobile-transport-progress-fill" style={{ width: `${progress}%` }} />
+        {/* Progress bar — drag handle only, no click-to-seek */}
+        <div className="mobile-transport-progress" ref={barRef}>
+          <div className="mobile-transport-progress-fill" style={{ width: `${displayPct}%`, transition: dragging ? 'none' : undefined }} />
+          <div
+            className="progress-handle mobile-progress-handle"
+            style={{ left: `${displayPct}%` }}
+            onMouseDown={onHandleMouseDown}
+            onTouchStart={onHandleTouchStart}
+          />
         </div>
 
         {/* Controls row */}
@@ -88,6 +145,10 @@ export default function MobileTransportBar() {
             style={syncMode ? { opacity: 0.3, pointerEvents: 'none' } : {}}
           >
             {playback.mode === 'auto' ? 'AUTO' : 'MAN'}
+          </button>
+
+          <button className="mobile-transport-btn mobile-transport-btn-sm" onClick={handleRewind30} title="Retour 30s">
+            <IconRewind30 size={18} />
           </button>
 
           <button className="mobile-transport-btn" onClick={handleStop} title="Stop">
@@ -113,7 +174,7 @@ export default function MobileTransportBar() {
             <IconNext />
           </button>
 
-          {/* Queue drawer toggle — chevron + badge (tap = toggle) */}
+          {/* Queue drawer toggle */}
           <button
             className={`mobile-transport-queue-btn ${drawerOpen ? 'drawer-open' : ''}`}
             onClick={() => setDrawerOpen(prev => !prev)}
