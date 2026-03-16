@@ -381,13 +381,12 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
   white-space: nowrap;
 }
 
-/* Mobile: badges drop to second line, auto column widths */
+/* Mobile: badges drop to second line, tighter proportions */
 @media (max-width: 768px) {
-  .song-table--browse { table-layout: auto; }
   .song-info { flex-wrap: wrap; }
   .song-info .song-title { width: 100%; }
-  .col-title-browse { width: auto; }
-  .col-artist-browse { width: auto; }
+  .col-title-browse { width: 55%; }
+  .col-artist-browse { width: 25%; }
 }
 
 /* Drag handles */
