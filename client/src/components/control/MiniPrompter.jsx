@@ -3,6 +3,49 @@ import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 
 /**
+ * MiniStageBanner — compact version of PrompterView's StageMessageBanner.
+ * Same logic: centered if short, scrolling marquee if long.
+ * Hardcoded colors (theme-independent).
+ */
+function MiniStageBanner({ message }) {
+  const containerRef = useRef(null);
+  const measureRef = useRef(null);
+  const [needsScroll, setNeedsScroll] = useState(false);
+
+  useEffect(() => {
+    if (!containerRef.current || !measureRef.current) return;
+    const cw = containerRef.current.clientWidth;
+    measureRef.current.style.paddingLeft = '0';
+    const tw = measureRef.current.scrollWidth;
+    setNeedsScroll(tw > cw - 16);
+    if (tw > cw - 16) {
+      measureRef.current.style.paddingLeft = '25%';
+    }
+  }, [message]);
+
+  const bannerStyle = {
+    flexShrink: 0, overflow: 'hidden', whiteSpace: 'nowrap',
+    background: 'rgba(245, 158, 11, 0.15)',
+    borderTop: '1px solid rgba(245, 158, 11, 0.3)',
+    padding: '3px 0', position: 'relative', marginTop: 'auto',
+    textAlign: needsScroll ? 'left' : 'center',
+  };
+
+  const textStyle = {
+    display: 'inline-block',
+    fontSize: 10, fontWeight: 600, color: '#f59e0b',
+    paddingLeft: needsScroll ? '25%' : 0,
+    animation: needsScroll ? 'marquee-scroll-prompter 14s linear infinite' : 'none',
+  };
+
+  return (
+    <div ref={containerRef} style={bannerStyle}>
+      <span ref={measureRef} style={textStyle}>{message}</span>
+    </div>
+  );
+}
+
+/**
  * MiniPrompter — miniature clone of the real PrompterView (/prompter).
  *
  * Uses 100% inline styles (no CSS classes shared with PrompterView)
@@ -168,20 +211,9 @@ export default function MiniPrompter() {
         </div>
       )}
 
-      {/* ── Stage message banner (compact, same colors as PrompterView) ── */}
+      {/* ── Stage message banner (compact, same logic as PrompterView) ── */}
       {stageMessage && (
-        <div style={{
-          flexShrink: 0, overflow: 'hidden', whiteSpace: 'nowrap',
-          background: 'rgba(245, 158, 11, 0.15)',
-          borderTop: '1px solid rgba(245, 158, 11, 0.3)',
-          padding: '3px 0', textAlign: 'center', marginTop: 'auto',
-        }}>
-          <span style={{
-            fontSize: 10, fontWeight: 600, color: '#f59e0b',
-          }}>
-            {stageMessage}
-          </span>
-        </div>
+        <MiniStageBanner message={stageMessage} />
       )}
     </div>
   );
