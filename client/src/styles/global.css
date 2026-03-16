@@ -834,14 +834,18 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 .stage-marquee {
   flex-shrink: 0; overflow: hidden; white-space: nowrap;
   background: rgba(245, 158, 11, 0.15); border-top: 1px solid rgba(245, 158, 11, 0.3);
-  padding: 6px 0; position: relative;
+  padding: 8px 0; position: relative;
 }
 .stage-marquee-text {
   display: inline-block; padding-left: 100%;
-  font-size: 15px; font-weight: 600; color: var(--warning);
-  animation: marquee-scroll 14s linear infinite;
+  font-size: clamp(18px, 2.5vw, 28px); font-weight: 700; color: var(--warning);
+  animation: marquee-scroll 30s linear infinite;
 }
-.stage-marquee-mini .stage-marquee-text { font-size: 11px; animation-duration: 10s; }
+/* Mini prompter (right panel) — smaller text, slightly faster */
+.stage-marquee-mini .stage-marquee-text {
+  font-size: clamp(12px, 1.4vw, 15px); font-weight: 600;
+  animation-duration: 20s;
+}
 
 @keyframes marquee-scroll {
   0%   { transform: translateX(0); }
