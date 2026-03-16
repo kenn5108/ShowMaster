@@ -2,6 +2,49 @@ import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 
+// ── Stage message: centered if short, scrolling if long ──
+function StageMessageBanner({ message }) {
+  const containerRef = useRef(null);
+  const textRef = useRef(null);
+  const [needsScroll, setNeedsScroll] = useState(false);
+
+  useEffect(() => {
+    if (!containerRef.current || !textRef.current) return;
+    const cw = containerRef.current.clientWidth;
+    // Measure text without padding-left offset
+    textRef.current.style.paddingLeft = '0';
+    const tw = textRef.current.scrollWidth;
+    const scrolling = tw > cw - 32; // 16px margin each side
+    setNeedsScroll(scrolling);
+    if (scrolling) {
+      textRef.current.style.paddingLeft = '25%';
+    }
+  }, [message]);
+
+  const bannerStyle = {
+    flexShrink: 0, overflow: 'hidden', whiteSpace: 'nowrap',
+    background: 'rgba(245, 158, 11, 0.15)',
+    borderTop: '1px solid rgba(245, 158, 11, 0.3)',
+    padding: '8px 0', position: 'relative',
+    textAlign: needsScroll ? 'left' : 'center',
+  };
+
+  const textStyle = {
+    display: 'inline-block',
+    fontSize: 'clamp(18px, 2.5vw, 28px)',
+    fontWeight: 700,
+    color: '#f59e0b',
+    paddingLeft: needsScroll ? '25%' : 0,
+    animation: needsScroll ? 'marquee-scroll-prompter 18s linear infinite' : 'none',
+  };
+
+  return (
+    <div ref={containerRef} style={bannerStyle}>
+      <span ref={textRef} style={textStyle}>{message}</span>
+    </div>
+  );
+}
+
 export default function PrompterView() {
   const { state } = useSocket();
   const rs = state.rocketshow || {};
@@ -212,11 +255,9 @@ export default function PrompterView() {
         )}
       </div>
 
-      {/* ── Stage message marquee ── */}
+      {/* ── Stage message: centered if fits, scrolling if too long ── */}
       {stageMessage && (
-        <div className="stage-marquee">
-          <span className="stage-marquee-text">{stageMessage}</span>
-        </div>
+        <StageMessageBanner message={stageMessage} />
       )}
     </div>
   );

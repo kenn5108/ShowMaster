@@ -860,5 +860,11 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
   100% { transform: translateX(-100%); }
 }
 
+/* Prompter marquee: starts at 25% offset, scrolls out fully */
+@keyframes marquee-scroll-prompter {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-125%); }
+}
+
 /* Header button — hidden on phone */
 .stage-msg-btn { white-space: nowrap; }
