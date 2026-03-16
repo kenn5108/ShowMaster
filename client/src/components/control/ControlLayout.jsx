@@ -171,6 +171,19 @@ export default function ControlLayout() {
     if (stageMsgOpen && stageMsgInputRef.current) stageMsgInputRef.current.focus();
   }, [stageMsgOpen]);
 
+  // ── Debug: viewport info (TEMPORARY — remove after confirming) ──
+  const [vpWidth, setVpWidth] = useState(window.innerWidth);
+  const [isCoarse, setIsCoarse] = useState(window.matchMedia('(pointer: coarse)').matches);
+  useEffect(() => {
+    const onResize = () => setVpWidth(window.innerWidth);
+    const mq = window.matchMedia('(pointer: coarse)');
+    const onPointer = (e) => setIsCoarse(e.matches);
+    window.addEventListener('resize', onResize);
+    mq.addEventListener?.('change', onPointer);
+    return () => { window.removeEventListener('resize', onResize); mq.removeEventListener?.('change', onPointer); };
+  }, []);
+  const layoutMode = vpWidth <= 768 ? 'PHONE' : isCoarse ? 'TABLET' : 'DESKTOP';
+
   // ── Fullscreen toggle ──
   const [isFullscreen, setIsFullscreen] = useState(false);
   useEffect(() => {
@@ -198,6 +211,10 @@ export default function ControlLayout() {
         </button>
         <h1>ShowMaster</h1>
         <span className="header-venue">{state.session?.venue}</span>
+        {/* DEBUG — remove after confirming tablet layout */}
+        <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: layoutMode === 'TABLET' ? '#22c55e' : layoutMode === 'PHONE' ? '#e94560' : '#3b82f6', color: '#fff', fontWeight: 700 }}>
+          {layoutMode} {vpWidth}px {isCoarse ? 'touch' : 'mouse'}
+        </span>
         <div className="header-status">
           <span className={`connection-dot ${state.rocketshow?.connected ? 'connected' : 'disconnected'}`}
                 title={state.rocketshow?.connected ? 'RocketShow connecté' : 'RocketShow déconnecté'} />

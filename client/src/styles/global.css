@@ -442,13 +442,14 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 /* ════════════════════════════════════
    RESPONSIVE
    ════════════════════════════════════ */
-@media (max-width: 1024px) {
-  :root { --right-panel-width: 280px; }
-
-  /* ── Tablet: move transport bar from bottom to just below header ──
-     Uses CSS order on the flex-column .app-layout:
-       header (order 0) → transport (order 1) → app-body (order 2)
-     At ≤768px .transport-bar is display:none so this has no phone effect. */
+/* ── Tablet: touch device wider than phone ──
+   pointer: coarse = touch screen (tablet or phone).
+   min-width: 769px  = not in phone layout (where .transport-bar is display:none).
+   No max-width cap — covers all tablets (portrait & landscape, any brand).
+   Moves transport bar from bottom to just below the header via flex order,
+   and enlarges touch targets (buttons, progress handle). */
+@media (pointer: coarse) and (min-width: 769px) {
+  /* Position: header (order 0, default) → transport (order 1) → body (order 2) */
   .transport-bar {
     order: 1; height: 72px; gap: 14px;
     border-top: none; border-bottom: 1px solid var(--border);
@@ -456,10 +457,16 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
   }
   .app-body { order: 2; }
 
+  /* Larger touch targets */
   .btn-transport { width: 48px; height: 48px; font-size: 22px; }
   .progress-bar { height: 6px; }
   .progress-handle { width: 18px; height: 18px; }
   .progress-handle::before { top: -24px; left: -14px; right: -14px; bottom: -10px; }
+}
+
+/* Narrower viewports (portrait tablets, small screens) — reduce right panel */
+@media (max-width: 1024px) {
+  :root { --right-panel-width: 280px; }
 }
 
 @media (max-width: 768px) {
