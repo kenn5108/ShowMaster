@@ -5,6 +5,19 @@ const { getState, updateState } = require('../core/state');
 
 const router = Router();
 
+// ── Stage message auto-expiration (5 minutes) ──
+const STAGE_MSG_TTL_MS = 5 * 60 * 1000;
+let stageMessageTimer = null;
+
+function clearStageMessageTimer() {
+  if (stageMessageTimer) { clearTimeout(stageMessageTimer); stageMessageTimer = null; }
+}
+
+function broadcastStageMessage(io, msg) {
+  updateState({ stageMessage: msg });
+  io.emit('state:update', { stageMessage: msg });
+}
+
 router.get('/', (req, res) => {
   res.json(settingsService.getAll());
 });
@@ -23,10 +36,21 @@ router.patch('/', (req, res) => {
     req.app.get('io').emit('state:update', { liveLock: getState().liveLock });
   }
 
-  // Stage message
+  // Stage message — with auto-expiration
   if (req.body.stage_message !== undefined) {
-    updateState({ stageMessage: req.body.stage_message });
-    req.app.get('io').emit('state:update', { stageMessage: req.body.stage_message });
+    const io = req.app.get('io');
+    clearStageMessageTimer();
+    broadcastStageMessage(io, req.body.stage_message);
+
+    // Start expiration timer if message is non-empty
+    if (req.body.stage_message) {
+      stageMessageTimer = setTimeout(() => {
+        stageMessageTimer = null;
+        settingsService.setMany({ stage_message: '' });
+        broadcastStageMessage(io, '');
+        console.log('[StageMessage] Auto-expired after 5 minutes');
+      }, STAGE_MSG_TTL_MS);
+    }
   }
 
   res.json(settingsService.getAll());

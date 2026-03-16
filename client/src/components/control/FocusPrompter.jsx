@@ -121,9 +121,11 @@ export default function FocusPrompter({ onClose }) {
           )}
         </div>
 
-        {/* Stage message */}
+        {/* Stage message — scrolling marquee */}
         {stageMessage && (
-          <div className="focus-prompter-stage-msg">{stageMessage}</div>
+          <div className="stage-marquee">
+            <span className="stage-marquee-text">{stageMessage}</span>
+          </div>
         )}
       </div>
     </div>

@@ -100,19 +100,6 @@ export default function SettingsView() {
         </p>
       </section>
 
-      {/* Stage message */}
-      <section style={{ marginBottom: 24 }}>
-        <h3 style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 12 }}>
-          Message plateau (prompteur)
-        </h3>
-        <input
-          value={settings.stage_message || ''}
-          onChange={(e) => handleChange('stage_message', e.target.value)}
-          placeholder="Message visible sur le prompteur..."
-          style={{ width: '100%' }}
-        />
-      </section>
-
       {/* Library sync */}
       <section style={{ marginBottom: 24 }}>
         <h3 style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 12 }}>

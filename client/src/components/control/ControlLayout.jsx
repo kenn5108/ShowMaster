@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
 import Sidebar from './Sidebar';
@@ -150,6 +150,27 @@ export default function ControlLayout() {
     };
   }, []);
 
+  // ── Stage message ──
+  const stageMessage = state.stageMessage || '';
+  const [stageMsgOpen, setStageMsgOpen] = useState(false);
+  const [stageMsgDraft, setStageMsgDraft] = useState('');
+  const stageMsgInputRef = useRef(null);
+
+  const handleSendStageMsg = () => {
+    const msg = stageMsgDraft.trim();
+    if (!msg) return;
+    api.patch('/settings', { stage_message: msg }).catch(() => {});
+    setStageMsgDraft('');
+    setStageMsgOpen(false);
+  };
+  const handleClearStageMsg = () => {
+    api.patch('/settings', { stage_message: '' }).catch(() => {});
+  };
+
+  useEffect(() => {
+    if (stageMsgOpen && stageMsgInputRef.current) stageMsgInputRef.current.focus();
+  }, [stageMsgOpen]);
+
   // ── Fullscreen toggle ──
   const [isFullscreen, setIsFullscreen] = useState(false);
   useEffect(() => {
@@ -191,6 +212,24 @@ export default function ControlLayout() {
           >
             {state.soundcheck ? 'SOUNDCHECK' : 'Soundcheck'}
           </button>
+          {/* Stage message button — desktop/tablet only */}
+          {stageMessage ? (
+            <button
+              className="btn btn-sm btn-danger stage-msg-btn"
+              onClick={handleClearStageMsg}
+              style={{ fontSize: 11, padding: '2px 8px' }}
+            >
+              Supprimer message
+            </button>
+          ) : (
+            <button
+              className="btn btn-sm btn-secondary stage-msg-btn"
+              onClick={() => { setStageMsgDraft(''); setStageMsgOpen(true); }}
+              style={{ fontSize: 11, padding: '2px 8px' }}
+            >
+              Message plateau
+            </button>
+          )}
           <button
             className="btn-icon fullscreen-toggle"
             onClick={toggleFullscreen}
@@ -240,6 +279,36 @@ export default function ControlLayout() {
       {/* Transport — desktop: full bar, mobile: compact fixed bar */}
       <TransportBar />
       <MobileTransportBar />
+
+      {/* Stage message compose popup */}
+      {stageMsgOpen && (
+        <div className="popup-overlay" onClick={() => setStageMsgOpen(false)}>
+          <div className="popup" onClick={(e) => e.stopPropagation()} style={{ minWidth: 340 }}>
+            <div className="popup-title">Message plateau</div>
+            <input
+              ref={stageMsgInputRef}
+              value={stageMsgDraft}
+              onChange={(e) => setStageMsgDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSendStageMsg(); }}
+              placeholder="Texte à afficher sur le prompteur..."
+              style={{ width: '100%', marginBottom: 12 }}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+                onClick={handleSendStageMsg}
+                disabled={!stageMsgDraft.trim()}
+              >
+                Envoyer
+              </button>
+              <button className="btn btn-secondary" onClick={() => setStageMsgOpen(false)}>
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Guard modal — blocks sync/lyrics while playing */}
       {guardModal && (

@@ -133,10 +133,10 @@ export default function PrompterView() {
         )}
       </div>
 
-      {/* Stage message */}
+      {/* Stage message — scrolling marquee */}
       {stageMessage && (
-        <div className="prompter-stage-message">
-          {stageMessage}
+        <div className="stage-marquee">
+          <span className="stage-marquee-text">{stageMessage}</span>
         </div>
       )}
     </div>

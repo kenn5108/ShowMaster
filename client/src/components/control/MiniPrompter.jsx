@@ -132,7 +132,9 @@ export default function MiniPrompter() {
       )}
 
       {stageMessage && (
-        <div className="mini-prompter-stage-msg">{stageMessage}</div>
+        <div className="stage-marquee stage-marquee-mini">
+          <span className="stage-marquee-text">{stageMessage}</span>
+        </div>
       )}
     </div>
   );
