@@ -354,6 +354,40 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 .song-select-check:hover { border-color: var(--text-muted); }
 .song-select-check:checked:hover { border-color: var(--accent); }
 
+/* ── Browse tables (Library & Playlist): fixed layout for stable columns ── */
+.song-table--browse { table-layout: fixed; }
+
+/* Title + badges container */
+.song-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.song-info .song-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.song-info .badge { flex-shrink: 0; }
+
+/* Artist column: constrained width + truncation */
+.col-artist-browse { width: 150px; }
+.col-artist-browse .song-artist {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Mobile: badges drop to second line, narrower artist */
+@media (max-width: 768px) {
+  .song-table--browse { table-layout: auto; }
+  .song-info { flex-wrap: wrap; }
+  .song-info .song-title { width: 100%; }
+  .col-artist-browse { width: auto; }
+}
+
 /* Drag handles */
 .drag-handle { cursor: grab; color: var(--text-muted); font-size: 18px; padding: 8px 4px; touch-action: none; }
 .drag-handle:active { cursor: grabbing; }

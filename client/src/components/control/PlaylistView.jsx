@@ -251,7 +251,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
         onClear={clearTags}
       />
 
-      <table className="song-table">
+      <table className="song-table song-table--browse">
         <thead>
           <tr>
             {isDesktop && (
@@ -271,13 +271,13 @@ export default function PlaylistView({ playlistId, onNavigate }) {
                 />
               </th>
             )}
-            <th style={{ width: 50 }} onClick={() => toggleSort('position')}>
+            <th style={{ width: 40 }} onClick={() => toggleSort('position')}>
               # {sortBy === 'position' && (sortDir === 'asc' ? '\u2191' : '\u2193')}
             </th>
             <th onClick={() => toggleSort('title')}>
               Titre {sortBy === 'title' && (sortDir === 'asc' ? '\u2191' : '\u2193')}
             </th>
-            <th onClick={() => toggleSort('artist')}>
+            <th className="col-artist-browse" onClick={() => toggleSort('artist')}>
               Artiste {sortBy === 'artist' && (sortDir === 'asc' ? '\u2191' : '\u2193')}
             </th>
             <th style={{ width: 70, textAlign: 'right' }}>Durée</th>
@@ -435,14 +435,14 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
       <td>
         <span style={{ color: 'var(--text-muted)' }}>{item.position + 1}</span>
       </td>
-      <td style={{ maxWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span className="song-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{item.title}</span>
-          {item.key_signature && <span className="badge badge-key" style={{ flexShrink: 0 }}>{item.key_signature}</span>}
-          {item.bpm && <span className="badge badge-bpm" style={{ flexShrink: 0 }}>{item.bpm} BPM</span>}
+      <td>
+        <div className="song-info">
+          <span className="song-title">{item.title}</span>
+          {item.key_signature && <span className="badge badge-key">{item.key_signature}</span>}
+          {item.bpm && <span className="badge badge-bpm">{item.bpm} BPM</span>}
         </div>
       </td>
-      <td><span className="song-artist">{item.artist || '—'}</span></td>
+      <td className="col-artist-browse"><span className="song-artist">{item.artist || '—'}</span></td>
       <td style={{ textAlign: 'right' }}>
         <span className="song-duration">{formatTime(item.duration_ms)}</span>
       </td>

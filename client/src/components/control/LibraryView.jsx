@@ -329,7 +329,7 @@ export default function LibraryView({ onNavigate }) {
         onClear={clearTags}
       />
 
-      <table className="song-table">
+      <table className="song-table song-table--browse">
         <thead>
           <tr>
             {isDesktop && (
@@ -352,7 +352,7 @@ export default function LibraryView({ onNavigate }) {
             <th onClick={() => toggleSort('title')}>
               Titre {sortBy === 'title' && (sortDir === 'asc' ? '\u2191' : '\u2193')}
             </th>
-            <th onClick={() => toggleSort('artist')}>
+            <th className="col-artist-browse" onClick={() => toggleSort('artist')}>
               Artiste {sortBy === 'artist' && (sortDir === 'asc' ? '\u2191' : '\u2193')}
             </th>
             <th style={{ width: 70, textAlign: 'right' }}>Durée</th>
@@ -559,15 +559,15 @@ function SongRow({ song, onShortPress, onLongPress, selected, onToggleSelect, sh
           />
         </td>
       )}
-      <td style={{ maxWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span className="song-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{song.title}</span>
+      <td>
+        <div className="song-info">
+          <span className="song-title">{song.title}</span>
           {missing && <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 600, flexShrink: 0 }}>MANQUANTE</span>}
-          {song.key_signature && <span className="badge badge-key" style={{ flexShrink: 0 }}>{song.key_signature}</span>}
-          {song.bpm && <span className="badge badge-bpm" style={{ flexShrink: 0 }}>{song.bpm} BPM</span>}
+          {song.key_signature && <span className="badge badge-key">{song.key_signature}</span>}
+          {song.bpm && <span className="badge badge-bpm">{song.bpm} BPM</span>}
         </div>
       </td>
-      <td><span className="song-artist">{song.artist || '\u2014'}</span></td>
+      <td className="col-artist-browse"><span className="song-artist">{song.artist || '\u2014'}</span></td>
       <td style={{ textAlign: 'right' }}>
         <span className="song-duration">{formatTime(song.duration_ms)}</span>
       </td>
