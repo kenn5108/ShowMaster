@@ -9,6 +9,9 @@ const SOCKET_URL = window.location.hostname === 'localhost'
 
 export function SocketProvider({ children }) {
   const [connected, setConnected] = useState(false);
+  // Local-only drag preview state (not broadcast to server)
+  // null = not dragging, number = drag position in ms
+  const [seekDragMs, setSeekDragMs] = useState(null);
   const [state, setState] = useState({
     session: null,
     rocketshow: {
@@ -97,7 +100,7 @@ export function SocketProvider({ children }) {
   }, []);
 
   return (
-    <SocketContext.Provider value={{ connected, state, emit, socket: socketRef }}>
+    <SocketContext.Provider value={{ connected, state, emit, socket: socketRef, seekDragMs, setSeekDragMs }}>
       {children}
     </SocketContext.Provider>
   );

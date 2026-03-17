@@ -5,7 +5,7 @@ import { formatTime } from '../../utils/format';
 import { IconStop, IconPlay, IconPause, IconNext, IconRewind30 } from './TransportIcons';
 
 export default function TransportBar() {
-  const { state } = useSocket();
+  const { state, setSeekDragMs } = useSocket();
   const rs = state.rocketshow || {};
   const playback = state.playback || {};
   const syncMode = !!playback.syncMode;
@@ -29,16 +29,23 @@ export default function TransportBar() {
   const onHandleMouseDown = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
+    const pct = pctFromEvent(e.clientX);
     setDragging(true);
-    setDragPct(pctFromEvent(e.clientX));
-  }, [pctFromEvent]);
+    setDragPct(pct);
+    if (rs.durationMs > 0) setSeekDragMs(Math.floor(pct * rs.durationMs));
+  }, [pctFromEvent, rs.durationMs, setSeekDragMs]);
 
   useEffect(() => {
     if (!dragging) return;
-    const onMove = (e) => { setDragPct(pctFromEvent(e.clientX)); };
+    const onMove = (e) => {
+      const pct = pctFromEvent(e.clientX);
+      setDragPct(pct);
+      if (rs.durationMs > 0) setSeekDragMs(Math.floor(pct * rs.durationMs));
+    };
     const onUp = (e) => {
       const pct = pctFromEvent(e.clientX);
       setDragging(false);
+      setSeekDragMs(null);
       if (rs.durationMs > 0) {
         api.post('/playback/seek', { positionMs: Math.floor(pct * rs.durationMs) }).catch(() => {});
       }
@@ -46,22 +53,30 @@ export default function TransportBar() {
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
     return () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
-  }, [dragging, pctFromEvent, rs.durationMs]);
+  }, [dragging, pctFromEvent, rs.durationMs, setSeekDragMs]);
 
   // Touch drag handlers (on handle)
   const onHandleTouchStart = useCallback((e) => {
     e.stopPropagation();
+    const pct = pctFromEvent(e.touches[0].clientX);
     setDragging(true);
-    setDragPct(pctFromEvent(e.touches[0].clientX));
-  }, [pctFromEvent]);
+    setDragPct(pct);
+    if (rs.durationMs > 0) setSeekDragMs(Math.floor(pct * rs.durationMs));
+  }, [pctFromEvent, rs.durationMs, setSeekDragMs]);
 
   useEffect(() => {
     if (!dragging) return;
-    const onMove = (e) => { e.preventDefault(); setDragPct(pctFromEvent(e.touches[0].clientX)); };
+    const onMove = (e) => {
+      e.preventDefault();
+      const pct = pctFromEvent(e.touches[0].clientX);
+      setDragPct(pct);
+      if (rs.durationMs > 0) setSeekDragMs(Math.floor(pct * rs.durationMs));
+    };
     const onEnd = (e) => {
       const touch = e.changedTouches[0];
       const pct = pctFromEvent(touch.clientX);
       setDragging(false);
+      setSeekDragMs(null);
       if (rs.durationMs > 0) {
         api.post('/playback/seek', { positionMs: Math.floor(pct * rs.durationMs) }).catch(() => {});
       }
@@ -69,7 +84,7 @@ export default function TransportBar() {
     document.addEventListener('touchmove', onMove, { passive: false });
     document.addEventListener('touchend', onEnd);
     return () => { document.removeEventListener('touchmove', onMove); document.removeEventListener('touchend', onEnd); };
-  }, [dragging, pctFromEvent, rs.durationMs]);
+  }, [dragging, pctFromEvent, rs.durationMs, setSeekDragMs]);
 
   const displayPct = dragging ? dragPct * 100 : progress;
 

@@ -68,7 +68,7 @@ function MiniStageBanner({ message }) {
  * Only difference: no header/topbar (title, artist, progress, toggle).
  */
 export default function MiniPrompter() {
-  const { state } = useSocket();
+  const { state, seekDragMs } = useSocket();
   const rs = state.rocketshow || {};
   const queue = state.queue || [];
   const syncMode = state.playback?.syncMode || null;
@@ -110,16 +110,18 @@ export default function MiniPrompter() {
   }, [currentSongId]);
 
   // ── Active line from cues (with global sync offset) ──
+  // During drag-seek, use the drag position instead of the real playback position
   useEffect(() => {
     if (cues.length === 0) { setActiveLine(-1); return; }
-    const pos = (rs.positionMs || 0) + syncOffsetMs;
+    const basePos = seekDragMs !== null ? seekDragMs : (rs.positionMs || 0);
+    const pos = basePos + syncOffsetMs;
     let active = -1;
     for (const cue of cues) {
       if (pos >= cue.time_ms) active = cue.line_index;
       else break;
     }
     setActiveLine(active);
-  }, [rs.positionMs, cues, syncOffsetMs]);
+  }, [rs.positionMs, cues, syncOffsetMs, seekDragMs]);
 
   // ── Auto-scroll active line to center (programmatic only) ──
   // Container uses overflow:hidden so user cannot scroll manually,
