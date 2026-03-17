@@ -5,7 +5,7 @@ import { formatTime } from '../../utils/format';
 import { IconStop, IconPlay, IconPause, IconNext, IconRewind30 } from './TransportIcons';
 
 export default function TransportBar() {
-  const { state, setSeekDragMs } = useSocket();
+  const { state } = useSocket();
   const rs = state.rocketshow || {};
   const playback = state.playback || {};
   const syncMode = !!playback.syncMode;
@@ -25,6 +25,14 @@ export default function TransportBar() {
     return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
   }, []);
 
+  // ── Emit seek preview events directly on window (bypasses React Context) ──
+  const emitSeekPreview = useCallback((ms) => {
+    window.dispatchEvent(new CustomEvent('seek-preview', { detail: { positionMs: ms } }));
+  }, []);
+  const emitSeekEnd = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('seek-preview-end'));
+  }, []);
+
   // Mouse drag handlers
   const onHandleMouseDown = useCallback((e) => {
     e.preventDefault();
@@ -32,20 +40,20 @@ export default function TransportBar() {
     const pct = pctFromEvent(e.clientX);
     setDragging(true);
     setDragPct(pct);
-    if (rs.durationMs > 0) setSeekDragMs(Math.floor(pct * rs.durationMs));
-  }, [pctFromEvent, rs.durationMs, setSeekDragMs]);
+    if (rs.durationMs > 0) emitSeekPreview(Math.floor(pct * rs.durationMs));
+  }, [pctFromEvent, rs.durationMs, emitSeekPreview]);
 
   useEffect(() => {
     if (!dragging) return;
     const onMove = (e) => {
       const pct = pctFromEvent(e.clientX);
       setDragPct(pct);
-      if (rs.durationMs > 0) setSeekDragMs(Math.floor(pct * rs.durationMs));
+      if (rs.durationMs > 0) emitSeekPreview(Math.floor(pct * rs.durationMs));
     };
     const onUp = (e) => {
       const pct = pctFromEvent(e.clientX);
       setDragging(false);
-      setSeekDragMs(null);
+      emitSeekEnd();
       if (rs.durationMs > 0) {
         api.post('/playback/seek', { positionMs: Math.floor(pct * rs.durationMs) }).catch(() => {});
       }
@@ -53,7 +61,7 @@ export default function TransportBar() {
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
     return () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
-  }, [dragging, pctFromEvent, rs.durationMs, setSeekDragMs]);
+  }, [dragging, pctFromEvent, rs.durationMs, emitSeekPreview, emitSeekEnd]);
 
   // Touch drag handlers (on handle)
   const onHandleTouchStart = useCallback((e) => {
@@ -61,8 +69,8 @@ export default function TransportBar() {
     const pct = pctFromEvent(e.touches[0].clientX);
     setDragging(true);
     setDragPct(pct);
-    if (rs.durationMs > 0) setSeekDragMs(Math.floor(pct * rs.durationMs));
-  }, [pctFromEvent, rs.durationMs, setSeekDragMs]);
+    if (rs.durationMs > 0) emitSeekPreview(Math.floor(pct * rs.durationMs));
+  }, [pctFromEvent, rs.durationMs, emitSeekPreview]);
 
   useEffect(() => {
     if (!dragging) return;
@@ -70,13 +78,13 @@ export default function TransportBar() {
       e.preventDefault();
       const pct = pctFromEvent(e.touches[0].clientX);
       setDragPct(pct);
-      if (rs.durationMs > 0) setSeekDragMs(Math.floor(pct * rs.durationMs));
+      if (rs.durationMs > 0) emitSeekPreview(Math.floor(pct * rs.durationMs));
     };
     const onEnd = (e) => {
       const touch = e.changedTouches[0];
       const pct = pctFromEvent(touch.clientX);
       setDragging(false);
-      setSeekDragMs(null);
+      emitSeekEnd();
       if (rs.durationMs > 0) {
         api.post('/playback/seek', { positionMs: Math.floor(pct * rs.durationMs) }).catch(() => {});
       }
@@ -84,7 +92,7 @@ export default function TransportBar() {
     document.addEventListener('touchmove', onMove, { passive: false });
     document.addEventListener('touchend', onEnd);
     return () => { document.removeEventListener('touchmove', onMove); document.removeEventListener('touchend', onEnd); };
-  }, [dragging, pctFromEvent, rs.durationMs, setSeekDragMs]);
+  }, [dragging, pctFromEvent, rs.durationMs, emitSeekPreview, emitSeekEnd]);
 
   const displayPct = dragging ? dragPct * 100 : progress;
 

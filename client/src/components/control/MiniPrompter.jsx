@@ -66,10 +66,11 @@ function MiniStageBanner({ message }) {
  * - Non-active: rgba(255,255,255,0.55)
  * - Stage message banner at bottom
  *
- * Only difference: no header/topbar (title, artist, progress, toggle).
+ * Drag preview: listens for native CustomEvents from TransportBar
+ * (bypasses React Context for zero-latency updates during drag).
  */
 export default function MiniPrompter() {
-  const { state, seekDragMs } = useSocket();
+  const { state } = useSocket();
   const rs = state.rocketshow || {};
   const queue = state.queue || [];
   const syncMode = state.playback?.syncMode || null;
@@ -79,13 +80,48 @@ export default function MiniPrompter() {
   const [lyrics, setLyrics] = useState([]);
   const [cues, setCues] = useState([]);
   const [activeLine, setActiveLine] = useState(-1);
+  // Drag preview: local state updated directly via CustomEvent (not Context)
+  const [seekPreviewMs, setSeekPreviewMs] = useState(null);
   const lastSongId = useRef(null);
   const lyricsRef = useRef(null);
   const activeLineRef = useRef(null);
   const hasScrolledOnce = useRef(false);
-  // Track drag state via ref so scroll effect can read it without depending on it
-  const isDraggingRef = useRef(false);
-  isDraggingRef.current = seekDragMs !== null;
+  const cuesRef = useRef([]);
+  cuesRef.current = cues;
+  const syncOffsetRef = useRef(0);
+  syncOffsetRef.current = syncOffsetMs;
+
+  // ── Listen for drag preview events from TransportBar (native DOM events) ──
+  useEffect(() => {
+    const onSeekPreview = (e) => {
+      const ms = e.detail.positionMs;
+      setSeekPreviewMs(ms);
+
+      // Calculate active line immediately from cues
+      const currentCues = cuesRef.current;
+      if (currentCues.length === 0) return;
+      const pos = ms + syncOffsetRef.current;
+      let active = -1;
+      for (const cue of currentCues) {
+        if (pos >= cue.time_ms) active = cue.line_index;
+        else break;
+      }
+      setActiveLine(active);
+    };
+
+    const onSeekEnd = () => {
+      setSeekPreviewMs(null);
+    };
+
+    window.addEventListener('seek-preview', onSeekPreview);
+    window.addEventListener('seek-preview-end', onSeekEnd);
+    return () => {
+      window.removeEventListener('seek-preview', onSeekPreview);
+      window.removeEventListener('seek-preview-end', onSeekEnd);
+    };
+  }, []);
+
+  const isDragging = seekPreviewMs !== null;
 
   // ── Song resolution (same as PrompterView) ──
   const currentQueueItem = useMemo(() => {
@@ -113,35 +149,28 @@ export default function MiniPrompter() {
     api.get(`/lyrics/${currentSongId}/cues`).then(setCues).catch(() => setCues([]));
   }, [currentSongId]);
 
-  // ── Active line from cues (with global sync offset) ──
-  // During drag-seek, use the drag position instead of the real playback position
+  // ── Active line from cues (normal playback — NOT during drag) ──
   useEffect(() => {
+    if (isDragging) return; // During drag, the event handler sets activeLine directly
     if (cues.length === 0) { setActiveLine(-1); return; }
-    const basePos = seekDragMs !== null ? seekDragMs : (rs.positionMs || 0);
-    const pos = basePos + syncOffsetMs;
+    const pos = (rs.positionMs || 0) + syncOffsetMs;
     let active = -1;
     for (const cue of cues) {
       if (pos >= cue.time_ms) active = cue.line_index;
       else break;
     }
     setActiveLine(active);
-  }, [rs.positionMs, cues, syncOffsetMs, seekDragMs]);
+  }, [rs.positionMs, cues, syncOffsetMs, isDragging]);
 
-  // ── Auto-scroll active line to center (programmatic only) ──
-  // Container uses overflow:hidden so user cannot scroll manually,
-  // but scrollIntoView still works programmatically.
-  // During drag-seek: instant scroll for snappy preview.
-  // Normal playback: smooth scroll after first position.
+  // ── Auto-scroll active line to center ──
+  // During drag: instant scroll. Normal playback: smooth scroll.
   useEffect(() => {
     if (!activeLineRef.current) return;
-    const useInstant = !hasScrolledOnce.current || isDraggingRef.current;
-    activeLineRef.current.scrollIntoView({ behavior: useInstant ? 'instant' : 'smooth', block: 'center' });
+    const behavior = (!hasScrolledOnce.current || isDragging) ? 'instant' : 'smooth';
+    activeLineRef.current.scrollIntoView({ behavior, block: 'center' });
     hasScrolledOnce.current = true;
-  }, [activeLine]);
+  }, [activeLine, isDragging]);
   useEffect(() => { hasScrolledOnce.current = false; }, [currentSongId]);
-
-  // ── Drag preview state ──
-  const isDragging = seekDragMs !== null;
 
   // ── Colors (hardcoded dark mode, same as PrompterView dark) ──
   const textActive = '#fff';
@@ -186,7 +215,7 @@ export default function MiniPrompter() {
               fontSize: 10, fontWeight: 600, color: '#3b82f6',
               fontVariantNumeric: 'tabular-nums', marginLeft: 'auto',
             }}>
-              {formatTime(seekDragMs)}
+              {formatTime(seekPreviewMs)}
             </span>
           </>
         )}

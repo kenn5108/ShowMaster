@@ -18,7 +18,6 @@ function UpdateOverlay({ elapsed }) {
     ? `${minutes}m ${String(seconds).padStart(2, '0')}s`
     : `${seconds}s`;
 
-  // Phase messages based on elapsed time
   const phase = elapsed < 5
     ? 'Téléchargement des fichiers…'
     : elapsed < 45
@@ -33,7 +32,6 @@ function UpdateOverlay({ elapsed }) {
       alignItems: 'center', justifyContent: 'center',
       color: '#fff', fontFamily: 'system-ui, sans-serif',
     }}>
-      {/* Spinner */}
       <div style={{
         width: 48, height: 48, borderRadius: '50%',
         border: '4px solid rgba(255,255,255,0.15)',
@@ -62,9 +60,6 @@ function UpdateOverlay({ elapsed }) {
 
 export function SocketProvider({ children }) {
   const [connected, setConnected] = useState(false);
-  // Local-only drag preview state (not broadcast to server)
-  // null = not dragging, number = drag position in ms
-  const [seekDragMs, setSeekDragMs] = useState(null);
   // Update overlay state
   const [updateApplying, setUpdateApplying] = useState(false);
   const [updateElapsed, setUpdateElapsed] = useState(0);
@@ -99,6 +94,14 @@ export function SocketProvider({ children }) {
   const initialVersionRef = useRef(null);
   const updatePendingRef = useRef(false);
 
+  // Called directly by SettingsView after successful API response
+  // (no dependency on socket event — guaranteed to fire)
+  const startUpdateOverlay = useCallback(() => {
+    updatePendingRef.current = true;
+    setUpdateApplying(true);
+    setUpdateElapsed(0);
+  }, []);
+
   useEffect(() => {
     const socket = io(SOCKET_URL, {
       transports: ['websocket', 'polling'],
@@ -117,10 +120,8 @@ export function SocketProvider({ children }) {
       // Auto-reload after update: compare server version
       if (fullState.serverVersion) {
         if (initialVersionRef.current === null) {
-          // First connection — store the version
           initialVersionRef.current = fullState.serverVersion;
         } else if (fullState.serverVersion !== initialVersionRef.current) {
-          // Server restarted with a new version → reload
           console.log('[ShowMaster] New server version detected, reloading...');
           window.location.reload();
         }
@@ -137,7 +138,7 @@ export function SocketProvider({ children }) {
       setState(prev => ({ ...prev, ...partial }));
     });
 
-    // Listen for update:applying — show overlay + set flag
+    // Listen for update:applying — show overlay (backup for /prompter page)
     socket.on('update:applying', () => {
       updatePendingRef.current = true;
       setUpdateApplying(true);
@@ -156,18 +157,10 @@ export function SocketProvider({ children }) {
     };
   }, []);
 
-  // ── Polling effect: active during update to detect server return ──
-  // The socket-based reload (state:full version comparison) may fail if
-  // socket.io doesn't reconnect cleanly after pm2 restart.
-  // This HTTP polling is a robust fallback:
-  // 1. Wait 5s (server is still building)
-  // 2. Poll every 2s with fetch
-  // 3. Track when server goes down (fetch fails)
-  // 4. When server comes back after going down → reload
+  // ── Polling effect: detect server return after restart ──
   useEffect(() => {
     if (!updateApplying) return;
 
-    // Elapsed timer (1s tick)
     const timerInterval = setInterval(() => {
       setUpdateElapsed(prev => prev + 1);
     }, 1000);
@@ -185,17 +178,14 @@ export function SocketProvider({ children }) {
           const data = await r.json();
 
           if (serverWentDown) {
-            // Server came back after going down = update complete
             console.log('[ShowMaster] Server back after update, reloading...');
             window.location.reload();
           } else if (data.currentHash && initialVersionRef.current &&
                      data.currentHash !== initialVersionRef.current) {
-            // Version changed (server restarted so fast we missed the disconnect)
             console.log('[ShowMaster] New version detected via poll, reloading...');
             window.location.reload();
           }
         } catch {
-          // Server is down (fetch failed / timeout / abort)
           serverWentDown = true;
         }
       }, 2000);
@@ -216,7 +206,7 @@ export function SocketProvider({ children }) {
   }, []);
 
   return (
-    <SocketContext.Provider value={{ connected, state, emit, socket: socketRef, seekDragMs, setSeekDragMs }}>
+    <SocketContext.Provider value={{ connected, state, emit, socket: socketRef, startUpdateOverlay }}>
       {children}
       {updateApplying && <UpdateOverlay elapsed={updateElapsed} />}
     </SocketContext.Provider>

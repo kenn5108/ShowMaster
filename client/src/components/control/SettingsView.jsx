@@ -3,7 +3,7 @@ import { api } from '../../utils/api';
 import { useSocket } from '../../contexts/SocketContext';
 
 export default function SettingsView() {
-  const { state } = useSocket();
+  const { state, startUpdateOverlay } = useSocket();
   const [settings, setSettings] = useState({});
   const [saved, setSaved] = useState(false);
 
@@ -72,12 +72,12 @@ export default function SettingsView() {
   };
 
   const handleApplyUpdate = async () => {
-    if (!window.confirm('Appliquer la mise à jour ? Le serveur va redémarrer et les pages se rechargeront automatiquement.')) return;
     setUpdating(true);
     setUpdateError('');
     try {
       await api.post('/update/apply');
-      // The server will restart — the page will auto-reload via SocketContext
+      // Trigger overlay immediately from here (guaranteed, no socket dependency)
+      startUpdateOverlay();
     } catch (err) {
       setUpdating(false);
       setUpdateError(err.message || 'Erreur lors de la mise à jour');

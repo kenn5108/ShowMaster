@@ -5,6 +5,7 @@ const logger = require('../core/logger');
 
 const router = Router();
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
+const UPDATE_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'update.sh');
 
 /**
  * GET /api/update/check
@@ -44,8 +45,12 @@ router.get('/check', (req, res) => {
 
 /**
  * POST /api/update/apply
- * Pull latest code, rebuild client, restart server via pm2.
- * Emits 'update:applying' so clients know to reload on reconnect.
+ * Runs scripts/update.sh which handles:
+ *   git pull → npm install → vite build → systemctl restart
+ *
+ * Emits 'update:applying' so clients show the overlay and poll for server return.
+ * The systemctl restart at the end kills this process — clients detect the
+ * disconnect and auto-reload when the new server comes back.
  */
 router.post('/apply', (req, res) => {
   const io = req.app.get('io');
@@ -56,19 +61,18 @@ router.post('/apply', (req, res) => {
   // Respond immediately so the client knows the process started
   res.json({ started: true });
 
-  // Run the update pipeline in background
-  const cmd = 'cd ' + PROJECT_ROOT + ' && git pull origin master && cd client && npx vite build --mode production && cd .. && pm2 restart showmaster';
-
+  // Run the update script in background
   logger.info('update', 'Starting update pipeline...');
-  exec(cmd, { timeout: 180000 }, (err, stdout, stderr) => {
+  exec(`bash "${UPDATE_SCRIPT}"`, { cwd: PROJECT_ROOT, timeout: 300000 }, (err, stdout, stderr) => {
     if (err) {
-      // If we get here, pm2 didn't kill us — so the build probably failed
+      // If we get here, systemctl didn't kill us — git pull or build probably failed
       logger.error('update', `Update failed: ${err.message}`);
-      logger.error('update', stderr);
+      if (stderr) logger.error('update', stderr);
+      if (stdout) logger.info('update', stdout);
       // Notify clients that the update failed
       io.emit('update:failed', { error: err.message });
     }
-    // If pm2 restart succeeded, this process is dead and this code never runs
+    // If systemctl restart succeeded, this process is dead and this code never runs
   });
 });
 
