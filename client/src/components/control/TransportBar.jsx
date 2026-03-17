@@ -89,8 +89,8 @@ export default function TransportBar() {
 
   return (
     <div className="transport-bar">
-      {/* Now playing info */}
-      <div style={{ flex: 1, minWidth: 0 }}>
+      {/* Zone left — song info (aligns with sidebar) */}
+      <div className="transport-zone transport-zone-left">
         {displayTitle ? (
           <>
             <div className="song-title" style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -104,8 +104,8 @@ export default function TransportBar() {
         )}
       </div>
 
-      {/* Progress — drag handle only, no click-to-seek */}
-      <div style={{ flex: 2, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+      {/* Zone center — progress + time (aligns with main content) */}
+      <div className="transport-zone transport-zone-center">
         <span style={{ fontSize: 11, color: dragging ? 'var(--accent)' : 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', minWidth: 36 }}>
           {dragging ? formatTime(Math.floor(dragPct * rs.durationMs)) : formatTime(rs.positionMs)}
         </span>
@@ -123,8 +123,8 @@ export default function TransportBar() {
         </span>
       </div>
 
-      {/* Transport buttons */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      {/* Zone right — buttons + mode (aligns with right panel) */}
+      <div className="transport-zone transport-zone-right">
         <button className="btn-transport" onClick={handleRewind30} title="Retour 30s"><IconRewind30 size={20} /></button>
         <button className="btn-transport" onClick={handleStop} title="Stop"><IconStop /></button>
         {isPlaying ? (
@@ -138,14 +138,10 @@ export default function TransportBar() {
           title="Suivant"
           style={syncMode ? { opacity: 0.3, pointerEvents: 'none' } : {}}
         ><IconNext /></button>
-      </div>
-
-      {/* Mode toggle */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontSize: 10 }}>
         <button
           className={`btn btn-sm ${playback.mode === 'auto' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => { if (!syncMode) api.post('/playback/mode', { mode: playback.mode === 'auto' ? 'manual' : 'auto' }); }}
-          style={{ fontSize: 10, padding: '3px 8px', ...(syncMode ? { opacity: 0.3, pointerEvents: 'none' } : {}) }}
+          style={{ fontSize: 10, padding: '3px 8px', marginLeft: 4, ...(syncMode ? { opacity: 0.3, pointerEvents: 'none' } : {}) }}
         >
           {playback.mode === 'auto' ? 'AUTO' : 'MANUEL'}
         </button>

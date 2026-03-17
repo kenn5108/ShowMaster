@@ -126,6 +126,10 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
   border-top: 1px solid var(--border);
   display: flex; align-items: center; padding: 0 16px; gap: 12px; flex-shrink: 0;
 }
+/* Transport zones — desktop defaults (flat flex) */
+.transport-zone-left { flex: 1; min-width: 0; }
+.transport-zone-center { flex: 2; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.transport-zone-right { display: flex; gap: 8px; align-items: center; }
 
 /* ════════════════════════════════════
    QUEUE PANEL (right panel top)
@@ -513,9 +517,9 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
      transport (order 1) → body (order 2) → header-as-footer (order 3)
      Puts controls at top, actions at bottom — avoids system gesture zone. */
   .transport-bar {
-    order: 1; height: 72px; gap: 14px;
+    order: 1; height: 72px; gap: 0;
     border-top: none; border-bottom: 1px solid var(--border);
-    padding-bottom: 0;
+    padding: 0;
   }
   .app-body { order: 2; }
   .app-header {
@@ -523,11 +527,47 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
     border-bottom: none; border-top: 1px solid var(--border);
   }
 
+  /* ── Transport bar: 3-zone column alignment ──
+     Left = sidebar width, Center = flex, Right = right panel width.
+     Visually aligns transport with the 3 columns below it. */
+  .transport-zone-left {
+    flex: none;
+    width: var(--sidebar-width);
+    padding: 0 16px;
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .transport-zone-center {
+    flex: 1;
+    padding: 0 16px;
+    gap: 10px;
+  }
+  .transport-zone-right {
+    flex: none;
+    width: var(--right-panel-width);
+    padding: 0 12px;
+    border-left: 1px solid var(--border);
+    justify-content: center;
+    gap: 10px;
+  }
+
   /* Larger touch targets */
   .btn-transport { width: 48px; height: 48px; font-size: 22px; }
   .progress-bar { height: 6px; }
   .progress-handle { width: 18px; height: 18px; }
   .progress-handle::before { top: -24px; left: -14px; right: -14px; bottom: -10px; }
+
+  /* ── Sidebar: more comfortable on tablet ──
+     Slightly larger text, more generous padding for touch. */
+  .sidebar-section { padding: 14px; }
+  .sidebar-title { font-size: 11px; margin-bottom: 8px; }
+  .sidebar-item {
+    font-size: 15px;
+    padding: 10px 12px;
+    border-radius: 8px;
+  }
+  .sidebar-item-secondary { font-size: 13px; }
+  .sidebar-playlist-item { font-size: 15px; }
 }
 
 /* Narrower viewports (portrait tablets, small screens) — reduce right panel */
