@@ -131,29 +131,21 @@ export default function FocusPrompter({ onClose }) {
   }, [rs.positionMs, cues]);
 
   // ── Auto-scroll active line to center (programmatic only) ──
-  // Container uses overflow:hidden so user cannot scroll manually.
-  // We set scrollTop directly — overflow:hidden still allows programmatic scrolling.
+  // Container uses overflow:hidden so user cannot scroll manually,
+  // but scrollIntoView still works programmatically.
   const hasScrolledOnce = useRef(false);
   useEffect(() => {
-    const container = lyricsContainerRef.current;
-    const el = activeRef.current;
-    if (!container || !el) return;
-    const target = el.offsetTop - container.clientHeight / 2 + el.clientHeight / 2;
-    if (hasScrolledOnce.current) {
-      container.scrollTo({ top: target, behavior: 'smooth' });
-    } else {
-      container.scrollTop = target;
-    }
+    if (!activeRef.current) return;
+    const behavior = hasScrolledOnce.current ? 'smooth' : 'instant';
+    activeRef.current.scrollIntoView({ behavior, block: 'center' });
     hasScrolledOnce.current = true;
   }, [activeLine]);
   useEffect(() => { hasScrolledOnce.current = false; }, [currentSongId]);
 
   // ── Initial positioning: center first line before playback starts ──
   useEffect(() => {
-    const container = lyricsContainerRef.current;
-    const el = firstLineRef.current;
-    if (lyrics.length > 0 && activeLine === -1 && container && el) {
-      container.scrollTop = el.offsetTop - container.clientHeight / 2 + el.clientHeight / 2;
+    if (lyrics.length > 0 && activeLine === -1 && firstLineRef.current) {
+      firstLineRef.current.scrollIntoView({ behavior: 'instant', block: 'center' });
     }
   }, [lyrics, activeLine]);
 
@@ -210,14 +202,11 @@ export default function FocusPrompter({ onClose }) {
   const toggleBg = negativeMode ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
   const toggleColor = negativeMode ? '#333' : '#ccc';
 
-  // Stop clicks on the inner content from closing the overlay
-  const stopProp = (e) => e.stopPropagation();
-
   return (
     <div className="focus-prompter" onClick={onClose}>
       <div
         className="focus-prompter-inner"
-        onClick={stopProp}
+        onClick={onClose}
         style={{ background: bg, color: textActive, transition: 'background 0.3s, color 0.3s', cursor: 'default' }}
       >
         {/* ── Header: current (left) + next (right) + close + toggle ── */}

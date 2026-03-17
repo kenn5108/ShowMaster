@@ -121,18 +121,12 @@ export default function MiniPrompter() {
   }, [rs.positionMs, cues]);
 
   // ── Auto-scroll active line to center (programmatic only) ──
-  // Container uses overflow:hidden so user cannot scroll manually.
-  // We set scrollTop directly — overflow:hidden still allows programmatic scrolling.
+  // Container uses overflow:hidden so user cannot scroll manually,
+  // but scrollIntoView still works programmatically.
   useEffect(() => {
-    const container = lyricsRef.current;
-    const el = activeLineRef.current;
-    if (!container || !el) return;
-    const target = el.offsetTop - container.clientHeight / 2 + el.clientHeight / 2;
-    if (hasScrolledOnce.current) {
-      container.scrollTo({ top: target, behavior: 'smooth' });
-    } else {
-      container.scrollTop = target;
-    }
+    if (!activeLineRef.current) return;
+    const behavior = hasScrolledOnce.current ? 'smooth' : 'instant';
+    activeLineRef.current.scrollIntoView({ behavior, block: 'center' });
     hasScrolledOnce.current = true;
   }, [activeLine]);
   useEffect(() => { hasScrolledOnce.current = false; }, [currentSongId]);
