@@ -8,7 +8,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
 /**
  * GET /api/update/check
- * Fetch origin and compare HEAD with origin/main.
+ * Fetch origin and compare HEAD with origin/master.
  * Returns { upToDate, currentHash, remoteHash, behindCount, summary }
  */
 router.get('/check', (req, res) => {
@@ -17,16 +17,16 @@ router.get('/check', (req, res) => {
     execSync('git fetch origin', { cwd: PROJECT_ROOT, encoding: 'utf8', timeout: 15000 });
 
     const currentHash = execSync('git rev-parse --short HEAD', { cwd: PROJECT_ROOT, encoding: 'utf8' }).trim();
-    const remoteHash = execSync('git rev-parse --short origin/main', { cwd: PROJECT_ROOT, encoding: 'utf8' }).trim();
+    const remoteHash = execSync('git rev-parse --short origin/master', { cwd: PROJECT_ROOT, encoding: 'utf8' }).trim();
 
     // Count commits behind
-    const behindStr = execSync('git rev-list HEAD..origin/main --count', { cwd: PROJECT_ROOT, encoding: 'utf8' }).trim();
+    const behindStr = execSync('git rev-list HEAD..origin/master --count', { cwd: PROJECT_ROOT, encoding: 'utf8' }).trim();
     const behindCount = parseInt(behindStr, 10) || 0;
 
     // Get short log of new commits (max 10)
     let summary = '';
     if (behindCount > 0) {
-      summary = execSync('git log HEAD..origin/main --oneline -10', { cwd: PROJECT_ROOT, encoding: 'utf8' }).trim();
+      summary = execSync('git log HEAD..origin/master --oneline -10', { cwd: PROJECT_ROOT, encoding: 'utf8' }).trim();
     }
 
     res.json({
@@ -57,7 +57,7 @@ router.post('/apply', (req, res) => {
   res.json({ started: true });
 
   // Run the update pipeline in background
-  const cmd = 'cd ' + PROJECT_ROOT + ' && git pull origin main && cd client && npx vite build --mode production && cd .. && pm2 restart showmaster';
+  const cmd = 'cd ' + PROJECT_ROOT + ' && git pull origin master && cd client && npx vite build --mode production && cd .. && pm2 restart showmaster';
 
   logger.info('update', 'Starting update pipeline...');
   exec(cmd, { timeout: 180000 }, (err, stdout, stderr) => {
