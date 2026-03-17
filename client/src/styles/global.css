@@ -84,14 +84,14 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0;
 }
-.sidebar-section { padding: 10px; }
+.sidebar-section { padding: 12px; }
 .sidebar-title {
   font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
-  color: var(--text-muted); margin-bottom: 6px;
+  color: var(--text-muted); margin-bottom: 8px;
 }
 .sidebar-item {
-  display: flex; align-items: center; padding: 7px 10px; border-radius: 6px;
-  cursor: pointer; color: var(--text-secondary); font-size: 13px; transition: background 0.15s;
+  display: flex; align-items: center; padding: 8px 12px; border-radius: 6px;
+  cursor: pointer; color: var(--text-secondary); font-size: 14px; transition: background 0.15s;
 }
 .sidebar-item:hover { background: rgba(255,255,255,0.05); }
 .sidebar-item.active { background: var(--bg-card); color: var(--text-primary); }
@@ -124,12 +124,26 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 .transport-bar {
   height: var(--transport-height); background: var(--bg-secondary);
   border-top: 1px solid var(--border);
-  display: flex; align-items: center; padding: 0 16px; gap: 12px; flex-shrink: 0;
+  display: flex; align-items: center; padding: 0; gap: 0; flex-shrink: 0;
 }
-/* Transport zones — desktop defaults (flat flex) */
-.transport-zone-left { flex: 1; min-width: 0; }
-.transport-zone-center { flex: 2; display: flex; align-items: center; gap: 8px; min-width: 0; }
-.transport-zone-right { display: flex; gap: 8px; align-items: center; }
+/* Transport zones — column-aligned: left=sidebar, center=main, right=panel */
+.transport-zone-left {
+  flex: none; width: var(--sidebar-width); min-width: 0;
+  padding: 0 16px;
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; justify-content: center;
+}
+.transport-zone-center {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 16px;
+}
+.transport-zone-right {
+  flex: none; width: var(--right-panel-width);
+  display: flex; gap: 8px; align-items: center; justify-content: center;
+  padding: 0 12px;
+  border-left: 1px solid var(--border);
+}
 
 /* ════════════════════════════════════
    QUEUE PANEL (right panel top)
@@ -527,29 +541,8 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
     border-bottom: none; border-top: 1px solid var(--border);
   }
 
-  /* ── Transport bar: 3-zone column alignment ──
-     Left = sidebar width, Center = flex, Right = right panel width.
-     Visually aligns transport with the 3 columns below it. */
-  .transport-zone-left {
-    flex: none;
-    width: var(--sidebar-width);
-    padding: 0 16px;
-    border-right: 1px solid var(--border);
-    display: flex; flex-direction: column; justify-content: center;
-  }
-  .transport-zone-center {
-    flex: 1;
-    padding: 0 16px;
-    gap: 10px;
-  }
-  .transport-zone-right {
-    flex: none;
-    width: var(--right-panel-width);
-    padding: 0 12px;
-    border-left: 1px solid var(--border);
-    justify-content: center;
-    gap: 10px;
-  }
+  /* Zone alignment inherited from base styles — no overrides needed.
+     Only touch-target sizes differ on tablet. */
 
   /* Larger touch targets */
   .btn-transport { width: 48px; height: 48px; font-size: 22px; }
