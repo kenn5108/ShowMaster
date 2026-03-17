@@ -17,7 +17,6 @@ import Popup from '../shared/Popup';
 export default function QueueView() {
   const { state } = useSocket();
   const queue = state.queue || [];
-  const liveLock = state.liveLock;
   const playerState = state.rocketshow?.playerState || 'STOPPED';
   const [confirmClear, setConfirmClear] = useState(false);
   const [popup, setPopup] = useState(null);
@@ -29,8 +28,8 @@ export default function QueueView() {
   // Stable ref — always points to the latest queue/state for use inside callbacks
   const queueRef = useRef(queue);
   queueRef.current = queue;
-  const stateRef = useRef({ liveLock, playerState });
-  stateRef.current = { liveLock, playerState };
+  const stateRef = useRef({ playerState });
+  stateRef.current = { playerState };
 
   // Only locked when actually playing or paused — not just "next in line"
   const isLocked = (item) =>
@@ -39,14 +38,12 @@ export default function QueueView() {
   const pos0Locked = queue[0] && isLocked(queue[0]);
 
   // ── Context menu (long-press touch / right-click desktop) ──
-  // Reads from refs to always get the freshest queue data, regardless of stale closures
   const openContextMenu = useCallback((idx) => {
     const q = queueRef.current;
     const s = stateRef.current;
     const item = q[idx];
     if (!item) return;
     if (item.is_current === 1 && (s.playerState === 'PLAYING' || s.playerState === 'PAUSED')) return;
-    if (s.liveLock) return;
     const headLocked = q[0] && q[0].is_current === 1 && (s.playerState === 'PLAYING' || s.playerState === 'PAUSED');
     const topPos = headLocked ? 1 : 0;
     const bottomPos = q.length - 1;
@@ -66,7 +63,6 @@ export default function QueueView() {
     const s = stateRef.current;
     const item = q[fromIdx];
     if (!item || item.is_current === 1) return;
-    if (s.liveLock) return;
     const headLocked = q[0] && q[0].is_current === 1 && (s.playerState === 'PLAYING' || s.playerState === 'PAUSED');
     const safePos = headLocked && toIdx === 0 ? 1 : toIdx;
     if (safePos === fromIdx) return;
@@ -109,7 +105,6 @@ export default function QueueView() {
     cleanupDragClasses();
     if (dragItem.current === null || dragOverItem.current === null) return;
     if (dragItem.current === dragOverItem.current) return;
-    if (liveLock) return;
 
     const item = queue[dragItem.current];
     if (!item || isLocked(item)) return;
@@ -148,7 +143,7 @@ export default function QueueView() {
             </span>
           )}
         </h2>
-        {!liveLock && queue.length > 0 && (
+        {queue.length > 0 && (
           <button className="btn btn-sm btn-secondary" onClick={() => setConfirmClear(true)}>
             Vider la file
           </button>
@@ -180,13 +175,13 @@ export default function QueueView() {
                   key={item.id}
                   className={locked ? 'current-song' : ''}
                   data-drag-idx={idx}
-                  draggable={!locked && !liveLock}
+                  draggable={!locked}
                   onDragStart={(e) => { if (touchDrag.isTouching()) { e.preventDefault(); return; } handleDragStart(idx, e); }}
                   onDragOver={(e) => handleDragOver(e, idx)}
                   onDrop={handleDrop}
                   onDragEnd={handleDragEnd}
                   onContextMenu={(e) => { e.preventDefault(); if (touchDrag.isTouching()) return; openContextMenu(idx); }}
-                  {...(!locked && !liveLock ? touchDrag.rowTouchHandlers(idx) : {})}
+                  {...(!locked ? touchDrag.rowTouchHandlers(idx) : {})}
                 >
                   <td>
                     {locked
@@ -207,7 +202,7 @@ export default function QueueView() {
                     <span className="song-duration">{formatTime(item.duration_ms)}</span>
                   </td>
                   <td>
-                    {!locked && !liveLock && (
+                    {!locked && (
                       <button
                         className="btn btn-sm btn-secondary"
                         onClick={() => handleRemove(item)}

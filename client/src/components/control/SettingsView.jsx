@@ -26,11 +26,6 @@ export default function SettingsView() {
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const handleToggleLock = async () => {
-    const newVal = state.liveLock ? '0' : '1';
-    await api.patch('/settings', { live_lock: newVal });
-  };
-
   const handleCloseSession = async () => {
     if (!window.confirm('Fermer la session ? (uniquement si file vide et rien en lecture)')) return;
     try {
@@ -163,22 +158,6 @@ export default function SettingsView() {
         <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
           Valeur positive = paroles en avance (anticiper). Valeur négative = paroles en retard (retarder).
           Ne modifie pas les timecodes enregistrés — correction de lecture uniquement.
-        </p>
-      </section>
-
-      {/* Live lock */}
-      <section style={{ marginBottom: 24 }}>
-        <h3 style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 12 }}>
-          Verrouillage live
-        </h3>
-        <button
-          className={`btn ${state.liveLock ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={handleToggleLock}
-        >
-          {state.liveLock ? 'Déverrouiller' : 'Verrouiller (mode live)'}
-        </button>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
-          Le verrouillage bloque les modifications de file, playlists et édition, mais laisse les commandes de transport et l'ajout en file.
         </p>
       </section>
 

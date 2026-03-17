@@ -6,7 +6,6 @@ import ContextMenu from '../shared/ContextMenu';
 
 export default function Sidebar({ activeView, activePlaylistId, onNavigate, isOpen }) {
   const { state, socket } = useSocket();
-  const liveLock = state.liveLock;
   const [playlists, setPlaylists] = useState([]);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
@@ -107,18 +106,16 @@ export default function Sidebar({ activeView, activePlaylistId, onNavigate, isOp
     useCallback((fromIdx, toIdx) => {
       const pl = playlistsRef.current[fromIdx];
       if (!pl) return;
-      if (liveLock) return;
       api.post(`/playlists/${pl.id}/move`, { newPosition: toIdx }).then(setPlaylists).catch(() => {});
-    }, [liveLock]),
+    }, []),
     {
       onTap: useCallback((idx) => {
         const pl = playlistsRef.current[idx];
         if (pl) onNavigate('playlist', { playlistId: pl.id });
       }, [onNavigate]),
       onContextMenu: useCallback((idx, x, y) => {
-        if (liveLock) return;
         openContextMenu(idx, x, y);
-      }, [liveLock, openContextMenu]),
+      }, [openContextMenu]),
     }
   );
 
@@ -129,7 +126,6 @@ export default function Sidebar({ activeView, activePlaylistId, onNavigate, isOp
   };
 
   const handleDragStart = (idx, e) => {
-    if (liveLock) { e.preventDefault(); return; }
     dragItem.current = idx;
     const row = e.currentTarget;
     row.classList.add('touch-dragging');
@@ -197,15 +193,13 @@ export default function Sidebar({ activeView, activePlaylistId, onNavigate, isOp
       <div className="sidebar-section" style={{ flex: 1 }}>
         <div className="sidebar-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           Playlists
-          {!liveLock && (
-            <button
-              className="btn btn-sm btn-secondary"
-              onClick={() => setCreating(true)}
-              style={{ fontSize: 10, padding: '2px 8px' }}
-            >
-              + Nouvelle
-            </button>
-          )}
+          <button
+            className="btn btn-sm btn-secondary"
+            onClick={() => setCreating(true)}
+            style={{ fontSize: 10, padding: '2px 8px' }}
+          >
+            + Nouvelle
+          </button>
         </div>
 
         {creating && (
@@ -229,7 +223,7 @@ export default function Sidebar({ activeView, activePlaylistId, onNavigate, isOp
               <div
                 key={pl.id}
                 data-drag-idx={idx}
-                draggable={!liveLock}
+                draggable
                 className={`sidebar-item sidebar-playlist-item ${activeView === 'playlist' && activePlaylistId === pl.id ? 'active' : ''}`}
                 onDragStart={(e) => { if (touchDrag.isTouching()) { e.preventDefault(); return; } handleDragStart(idx, e); }}
                 onDragOver={(e) => handleDragOver(e, idx)}
@@ -245,7 +239,6 @@ export default function Sidebar({ activeView, activePlaylistId, onNavigate, isOp
                 onContextMenu={(e) => {
                   e.preventDefault();
                   if (touchUsedRef.current) return;
-                  if (liveLock) return;
                   openContextMenu(idx, e.clientX, e.clientY);
                 }}
               >

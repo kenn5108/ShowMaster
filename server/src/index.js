@@ -153,7 +153,6 @@ async function startup() {
   logger.info('core', 'Database ready');
 
   // 2. Load settings into state
-  const liveLock = settingsService.get('live_lock') === '1';
   const stageMessage = settingsService.get('stage_message') || '';
   const syncOffsetMs = parseInt(settingsService.get('sync_offset_ms') || '0', 10);
 
@@ -165,7 +164,7 @@ async function startup() {
     logger.warn('core', 'Could not read git version');
   }
 
-  updateState({ liveLock, stageMessage, syncOffsetMs, serverVersion });
+  updateState({ stageMessage, syncOffsetMs, serverVersion });
 
   // 3. Restore session
   session.init();

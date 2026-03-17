@@ -17,7 +17,6 @@ import Popup from '../shared/Popup';
 export default function QueuePanel() {
   const { state } = useSocket();
   const queue = state.queue || [];
-  const liveLock = state.liveLock;
   const syncMode = !!state.playback?.syncMode;
   const playerState = state.rocketshow?.playerState || 'STOPPED';
   const [confirmClear, setConfirmClear] = useState(false);
@@ -30,8 +29,8 @@ export default function QueuePanel() {
   // Stable ref — always points to the latest queue/state for use inside callbacks
   const queueRef = useRef(queue);
   queueRef.current = queue;
-  const stateRef = useRef({ liveLock, playerState });
-  stateRef.current = { liveLock, playerState };
+  const stateRef = useRef({ playerState });
+  stateRef.current = { playerState };
 
   // Only locked when actually playing or paused — not just "next in line"
   const isLocked = (item) =>
@@ -41,14 +40,12 @@ export default function QueuePanel() {
   const pos0Locked = queue[0] && isLocked(queue[0]);
 
   // ── Context menu (long-press touch / right-click desktop) ──
-  // Reads from refs to always get the freshest queue data, regardless of stale closures
   const openContextMenu = useCallback((idx) => {
     const q = queueRef.current;
     const s = stateRef.current;
     const item = q[idx];
     if (!item) return;
     if (item.is_current === 1 && (s.playerState === 'PLAYING' || s.playerState === 'PAUSED')) return;
-    if (s.liveLock) return;
     const headLocked = q[0] && q[0].is_current === 1 && (s.playerState === 'PLAYING' || s.playerState === 'PAUSED');
     const topPos = headLocked ? 1 : 0;
     const bottomPos = q.length - 1;
@@ -68,7 +65,6 @@ export default function QueuePanel() {
     const s = stateRef.current;
     const item = q[fromIdx];
     if (!item || item.is_current === 1) return;
-    if (s.liveLock) return;
     const headLocked = q[0] && q[0].is_current === 1 && (s.playerState === 'PLAYING' || s.playerState === 'PAUSED');
     const safePos = headLocked && toIdx === 0 ? 1 : toIdx;
     if (safePos === fromIdx) return;
@@ -111,7 +107,6 @@ export default function QueuePanel() {
     cleanupDragClasses();
     if (dragItem.current === null || dragOverItem.current === null) return;
     if (dragItem.current === dragOverItem.current) return;
-    if (liveLock) return;
     const item = queue[dragItem.current];
     if (!item || isLocked(item)) return;
     const safePos = pos0Locked && dragOverItem.current === 0 ? 1 : dragOverItem.current;
@@ -128,7 +123,7 @@ export default function QueuePanel() {
   };
 
   const handleRemove = (item) => {
-    if (isLocked(item) || liveLock) return;
+    if (isLocked(item)) return;
     api.post('/queue/remove', { queueItemId: item.id }).catch(() => {});
   };
 
@@ -141,7 +136,7 @@ export default function QueuePanel() {
         {queue.length > 0 && (
           <span className="queue-panel-duration">{formatDuration(queue.reduce((sum, q) => sum + (q.duration_ms || 0), 0))}</span>
         )}
-        {!liveLock && queue.length > 1 && (
+        {queue.length > 1 && (
           <button className="queue-panel-clear" onClick={() => setConfirmClear(true)}>
             Vider
           </button>
@@ -161,30 +156,27 @@ export default function QueuePanel() {
                 key={item.id}
                 className={`queue-panel-item ${locked ? 'current' : ''}`}
                 data-drag-idx={idx}
-                draggable={!locked && !liveLock}
+                draggable={!locked}
                 onDragStart={(e) => { if (touchDrag.isTouching()) { e.preventDefault(); return; } handleDragStart(idx, e); }}
                 onDragOver={(e) => handleDragOver(e, idx)}
                 onDrop={handleDrop}
                 onDragEnd={handleDragEnd}
                 onContextMenu={(e) => { e.preventDefault(); if (touchDrag.isTouching()) return; openContextMenu(idx); }}
-                {...(!locked && !liveLock ? touchDrag.rowTouchHandlers(idx) : {})}
+                {...(!locked ? touchDrag.rowTouchHandlers(idx) : {})}
               >
                 <div className="queue-panel-item-index">
                   {locked ? (
                     <span className="queue-panel-playing-icon">▶</span>
                   ) : (
-                    !liveLock && (
-                      <span className="drag-handle-sm">⠿</span>
-                    )
+                    <span className="drag-handle-sm">⠿</span>
                   )}
-                  {!locked && liveLock && <span className="queue-panel-num">{idx + 1}</span>}
                 </div>
                 <div className="queue-panel-item-info">
                   <div className="queue-panel-item-title">{item.title}</div>
                   <div className="queue-panel-item-artist">{item.artist || ''}</div>
                 </div>
                 <div className="queue-panel-item-duration">{formatTime(item.duration_ms)}</div>
-                {!locked && !liveLock ? (
+                {!locked ? (
                   <button className="queue-panel-item-remove" onClick={() => handleRemove(item)}>✕</button>
                 ) : (
                   <span className="queue-panel-item-remove-spacer" />

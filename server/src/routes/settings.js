@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const settingsService = require('../services/settings');
 const rocketshow = require('../services/rocketshow');
-const { getState, updateState } = require('../core/state');
+const { updateState } = require('../core/state');
 
 const router = Router();
 
@@ -28,12 +28,6 @@ router.patch('/', (req, res) => {
   // If RS settings changed, restart poller
   if (req.body.rocketshow_host || req.body.rocketshow_port || req.body.polling_interval_ms) {
     rocketshow.restart();
-  }
-
-  // Live lock
-  if (req.body.live_lock !== undefined) {
-    updateState({ liveLock: req.body.live_lock === '1' || req.body.live_lock === true });
-    req.app.get('io').emit('state:update', { liveLock: getState().liveLock });
   }
 
   // Sync offset

@@ -189,7 +189,6 @@ export default function ControlLayout() {
                 title={state.rocketshow?.connected ? 'RocketShow connecté' : 'RocketShow déconnecté'} />
           <span className={`connection-dot ${connected ? 'connected' : 'disconnected'}`}
                 title={connected ? 'WebSocket connecté' : 'WebSocket déconnecté'} />
-          {state.liveLock && <span className="lock-badge locked">LIVE</span>}
           <button
             className={`btn btn-sm ${state.soundcheck ? 'btn-soundcheck-active' : 'btn-secondary'}`}
             onClick={() => api.post('/playback/soundcheck', { enabled: !state.soundcheck }).catch(() => {})}

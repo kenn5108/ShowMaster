@@ -13,7 +13,6 @@ import Popup from '../shared/Popup';
 export default function MobileQueueDrawer({ open, onClose }) {
   const { state } = useSocket();
   const queue = state.queue || [];
-  const liveLock = state.liveLock;
   const syncMode = !!state.playback?.syncMode;
   const playerState = state.rocketshow?.playerState || 'STOPPED';
   const [confirmClear, setConfirmClear] = useState(false);
@@ -26,8 +25,8 @@ export default function MobileQueueDrawer({ open, onClose }) {
   // Refs for fresh data in callbacks (avoid stale closures)
   const queueRef = useRef(queue);
   queueRef.current = queue;
-  const stateRef = useRef({ liveLock, playerState });
-  stateRef.current = { liveLock, playerState };
+  const stateRef = useRef({ playerState });
+  stateRef.current = { playerState };
 
   const isLocked = (item) =>
     item.is_current === 1 && (playerState === 'PLAYING' || playerState === 'PAUSED');
@@ -41,7 +40,6 @@ export default function MobileQueueDrawer({ open, onClose }) {
     const item = q[idx];
     if (!item) return;
     if (item.is_current === 1 && (s.playerState === 'PLAYING' || s.playerState === 'PAUSED')) return;
-    if (s.liveLock) return;
     const headLocked = q[0] && q[0].is_current === 1 && (s.playerState === 'PLAYING' || s.playerState === 'PAUSED');
     const topPos = headLocked ? 1 : 0;
     const bottomPos = q.length - 1;
@@ -61,7 +59,6 @@ export default function MobileQueueDrawer({ open, onClose }) {
     const s = stateRef.current;
     const item = q[fromIdx];
     if (!item || item.is_current === 1) return;
-    if (s.liveLock) return;
     const headLocked = q[0] && q[0].is_current === 1 && (s.playerState === 'PLAYING' || s.playerState === 'PAUSED');
     const safePos = headLocked && toIdx === 0 ? 1 : toIdx;
     if (safePos === fromIdx) return;
@@ -102,7 +99,6 @@ export default function MobileQueueDrawer({ open, onClose }) {
     cleanupDragClasses();
     if (dragItem.current === null || dragOverItem.current === null) return;
     if (dragItem.current === dragOverItem.current) return;
-    if (liveLock) return;
     const item = queue[dragItem.current];
     if (!item || isLocked(item)) return;
     const safePos = pos0Locked && dragOverItem.current === 0 ? 1 : dragOverItem.current;
@@ -118,7 +114,7 @@ export default function MobileQueueDrawer({ open, onClose }) {
   };
 
   const handleRemove = (item) => {
-    if (isLocked(item) || liveLock) return;
+    if (isLocked(item)) return;
     api.post('/queue/remove', { queueItemId: item.id }).catch(() => {});
   };
 
@@ -141,7 +137,7 @@ export default function MobileQueueDrawer({ open, onClose }) {
           {queue.length > 0 && (
             <span className="mobile-drawer-duration">{formatDuration(queue.reduce((sum, q) => sum + (q.duration_ms || 0), 0))}</span>
           )}
-          {!liveLock && queue.length > 1 && (
+          {queue.length > 1 && (
             <button
               className="mobile-drawer-clear"
               onClick={() => setConfirmClear(true)}
@@ -166,30 +162,27 @@ export default function MobileQueueDrawer({ open, onClose }) {
                   key={item.id}
                   className={`mobile-drawer-item ${locked ? 'current' : ''}`}
                   data-drag-idx={idx}
-                  draggable={!locked && !liveLock}
+                  draggable={!locked}
                   onDragStart={(e) => { if (touchDrag.isTouching()) { e.preventDefault(); return; } handleDragStart(idx, e); }}
                   onDragOver={(e) => handleDragOver(e, idx)}
                   onDrop={handleDrop}
                   onDragEnd={handleDragEnd}
                   onContextMenu={(e) => { e.preventDefault(); if (touchDrag.isTouching()) return; openContextMenu(idx); }}
-                  {...(!locked && !liveLock ? touchDrag.rowTouchHandlers(idx) : {})}
+                  {...(!locked ? touchDrag.rowTouchHandlers(idx) : {})}
                 >
                   <div className="mobile-drawer-item-handle">
                     {locked ? (
                       <span className="mobile-drawer-playing-icon">▶</span>
                     ) : (
-                      !liveLock && (
-                        <span className="drag-handle">⠿</span>
-                      )
+                      <span className="drag-handle">⠿</span>
                     )}
-                    {!locked && liveLock && <span className="mobile-drawer-num">{idx + 1}</span>}
                   </div>
                   <div className="mobile-drawer-item-info">
                     <div className="mobile-drawer-item-title">{item.title}</div>
                     <div className="mobile-drawer-item-artist">{item.artist || ''}</div>
                   </div>
                   <div className="mobile-drawer-item-duration">{formatTime(item.duration_ms)}</div>
-                  {!locked && !liveLock ? (
+                  {!locked ? (
                     <button className="mobile-drawer-item-remove" onClick={() => handleRemove(item)}>✕</button>
                   ) : (
                     <span className="mobile-drawer-item-remove-spacer" />

@@ -35,7 +35,6 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   const [playlistPicker, setPlaylistPicker] = useState(null);
   const [allPlaylists, setAllPlaylists] = useState([]);
   const [selectedSongs, setSelectedSongs] = useState(new Set());
-  const liveLock = state.liveLock;
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
   const dragFromEl = useRef(null);
@@ -79,7 +78,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
 
   const clearTags = () => setSelectedTags(new Set());
 
-  const canDrag = sortBy === 'position' && !liveLock;
+  const canDrag = sortBy === 'position';
 
   const handleShortPress = useCallback((item) => {
     const queue = state.queue || [];
@@ -225,14 +224,12 @@ export default function PlaylistView({ playlistId, onNavigate }) {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <h2 style={{ fontSize: 18, flex: 1 }}>{playlist.name}</h2>
-        {!liveLock && (
-          <button
-            className="btn btn-sm btn-primary"
-            onClick={() => api.post('/queue/load-playlist', { playlistId }).catch(() => {})}
-          >
-            Charger en file
-          </button>
-        )}
+        <button
+          className="btn btn-sm btn-primary"
+          onClick={() => api.post('/queue/load-playlist', { playlistId }).catch(() => {})}
+        >
+          Charger en file
+        </button>
       </div>
 
       <input

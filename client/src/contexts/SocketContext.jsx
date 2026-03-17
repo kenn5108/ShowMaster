@@ -21,7 +21,6 @@ export function SocketProvider({ children }) {
     },
     queue: [],
     playback: { mode: 'auto', currentSong: null },
-    liveLock: false,
     stageMessage: '',
     syncOffsetMs: 0,
     serverVersion: '',

@@ -13,7 +13,7 @@ router.get('/state', (req, res) => {
   });
 });
 
-// Transport commands — always allowed (even in live lock)
+// Transport commands
 router.post('/play', async (req, res) => {
   try {
     logger.info('route:playback', `[POST /play] body=${JSON.stringify(req.body)}`);
