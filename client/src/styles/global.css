@@ -92,6 +92,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 .sidebar-item {
   display: flex; align-items: center; padding: 8px 12px; border-radius: 6px;
   cursor: pointer; color: var(--text-secondary); font-size: 14px; transition: background 0.15s;
+  -webkit-user-select: none; user-select: none;
 }
 .sidebar-item:hover { background: rgba(255,255,255,0.05); }
 .sidebar-item.active { background: var(--bg-card); color: var(--text-primary); }

@@ -5,7 +5,7 @@ import { useTouchDrag } from '../../hooks/useTouchDrag';
 import ContextMenu from '../shared/ContextMenu';
 
 export default function Sidebar({ activeView, activePlaylistId, onNavigate, isOpen }) {
-  const { state } = useSocket();
+  const { state, socket } = useSocket();
   const liveLock = state.liveLock;
   const [playlists, setPlaylists] = useState([]);
   const [creating, setCreating] = useState(false);
@@ -41,6 +41,15 @@ export default function Sidebar({ activeView, activePlaylistId, onNavigate, isOp
   useEffect(() => {
     loadPlaylists();
   }, [activeView, loadPlaylists]);
+
+  // Real-time sync: update playlist list when any client creates/renames/deletes/moves
+  useEffect(() => {
+    const s = socket?.current;
+    if (!s) return;
+    const handler = (list) => setPlaylists(list);
+    s.on('playlists:changed', handler);
+    return () => s.off('playlists:changed', handler);
+  }, [socket]);
 
   const handleCreate = async (e) => {
     e.preventDefault();

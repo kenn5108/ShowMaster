@@ -22,29 +22,39 @@ router.get('/:id', (req, res) => {
   res.json(pl);
 });
 
+// Helper: broadcast playlist list to all clients after any mutation
+function broadcastPlaylists(req) {
+  const io = req.app.get('io');
+  if (io) io.emit('playlists:changed', playlists.getAll());
+}
+
 router.post('/', (req, res) => {
   if (checkLock(req, res)) return;
   const { name } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name required' });
   const pl = playlists.create(name);
+  broadcastPlaylists(req);
   res.json(pl);
 });
 
 router.patch('/:id', (req, res) => {
   if (checkLock(req, res)) return;
   playlists.rename(parseInt(req.params.id), req.body.name);
+  broadcastPlaylists(req);
   res.json(playlists.getById(parseInt(req.params.id)));
 });
 
 router.delete('/:id', (req, res) => {
   if (checkLock(req, res)) return;
   playlists.remove(parseInt(req.params.id));
+  broadcastPlaylists(req);
   res.json({ ok: true });
 });
 
 router.post('/:id/move', (req, res) => {
   if (checkLock(req, res)) return;
   playlists.movePlaylist(parseInt(req.params.id), req.body.newPosition);
+  broadcastPlaylists(req);
   res.json(playlists.getAll());
 });
 
