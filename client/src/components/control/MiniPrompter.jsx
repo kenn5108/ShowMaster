@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useSocket } from '../../contexts/SocketContext';
 import { api } from '../../utils/api';
+import { formatTime } from '../../utils/format';
 
 /**
  * MiniStageBanner — compact version of PrompterView's StageMessageBanner.
@@ -139,6 +140,9 @@ export default function MiniPrompter() {
   }, [activeLine]);
   useEffect(() => { hasScrolledOnce.current = false; }, [currentSongId]);
 
+  // ── Drag preview state ──
+  const isDragging = seekDragMs !== null;
+
   // ── Colors (hardcoded dark mode, same as PrompterView dark) ──
   const textActive = '#fff';
   const textDimmed = 'rgba(255,255,255,0.55)';
@@ -149,10 +153,10 @@ export default function MiniPrompter() {
   return (
     <div style={{
       height: 220, flexShrink: 0, background: '#000',
-      borderTop: '1px solid var(--border)',
+      borderTop: isDragging ? '2px solid #3b82f6' : '1px solid var(--border)',
       display: 'flex', flexDirection: 'column', overflow: 'hidden',
     }}>
-      {/* ── Minimal header: label + live dot ── */}
+      {/* ── Minimal header: label + live dot + drag preview indicator ── */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 6,
         padding: '6px 10px', flexShrink: 0,
@@ -163,11 +167,28 @@ export default function MiniPrompter() {
         {syncMode && (
           <span style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b', marginLeft: 2 }}>SYNCHRO</span>
         )}
-        {rs.playerState === 'PLAYING' && (
+        {rs.playerState === 'PLAYING' && !isDragging && (
           <span style={{
             width: 6, height: 6, borderRadius: '50%',
             background: 'var(--success)', animation: 'pulse 1.5s infinite',
           }} />
+        )}
+        {isDragging && (
+          <>
+            <span style={{
+              fontSize: 9, fontWeight: 700, color: '#3b82f6',
+              background: 'rgba(59,130,246,0.15)', padding: '1px 5px',
+              borderRadius: 3, letterSpacing: 0.5,
+            }}>
+              APERÇU
+            </span>
+            <span style={{
+              fontSize: 10, fontWeight: 600, color: '#3b82f6',
+              fontVariantNumeric: 'tabular-nums', marginLeft: 'auto',
+            }}>
+              {formatTime(seekDragMs)}
+            </span>
+          </>
         )}
       </div>
 
@@ -206,7 +227,7 @@ export default function MiniPrompter() {
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
-                      transition: 'color 0.3s, background 0.3s',
+                      transition: isDragging ? 'none' : 'color 0.3s, background 0.3s',
                     }}
                   >
                     {line || '\u00A0'}
