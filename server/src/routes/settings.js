@@ -36,6 +36,13 @@ router.patch('/', (req, res) => {
     req.app.get('io').emit('state:update', { liveLock: getState().liveLock });
   }
 
+  // Sync offset
+  if (req.body.sync_offset_ms !== undefined) {
+    const offset = parseInt(req.body.sync_offset_ms, 10) || 0;
+    updateState({ syncOffsetMs: offset });
+    req.app.get('io').emit('state:update', { syncOffsetMs: offset });
+  }
+
   // Stage message — with auto-expiration
   if (req.body.stage_message !== undefined) {
     const io = req.app.get('io');

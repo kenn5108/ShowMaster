@@ -7,6 +7,11 @@ export default function SettingsView() {
   const [settings, setSettings] = useState({});
   const [saved, setSaved] = useState(false);
 
+  // ── Update state ──
+  const [updateStatus, setUpdateStatus] = useState(null); // null | 'checking' | { upToDate, behindCount, summary, ... } | 'error'
+  const [updating, setUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState('');
+
   useEffect(() => {
     api.get('/settings').then(setSettings).catch(() => {});
   }, []);
@@ -42,6 +47,51 @@ export default function SettingsView() {
     } catch (err) {
       alert(`Erreur : ${err.message}`);
     }
+  };
+
+  // ── Sync offset ──
+  const currentOffset = state.syncOffsetMs || 0;
+
+  const handleOffsetChange = async (delta) => {
+    const newValue = currentOffset + delta;
+    // Clamp to reasonable range: -5000 to +5000
+    const clamped = Math.max(-5000, Math.min(5000, newValue));
+    await api.patch('/settings', { sync_offset_ms: String(clamped) });
+  };
+
+  const handleOffsetReset = async () => {
+    await api.patch('/settings', { sync_offset_ms: '0' });
+  };
+
+  // ── Update check ──
+  const handleCheckUpdate = async () => {
+    setUpdateStatus('checking');
+    setUpdateError('');
+    try {
+      const result = await api.get('/update/check');
+      setUpdateStatus(result);
+    } catch (err) {
+      setUpdateStatus('error');
+      setUpdateError(err.message || 'Erreur de vérification');
+    }
+  };
+
+  const handleApplyUpdate = async () => {
+    if (!window.confirm('Appliquer la mise à jour ? Le serveur va redémarrer et les pages se rechargeront automatiquement.')) return;
+    setUpdating(true);
+    setUpdateError('');
+    try {
+      await api.post('/update/apply');
+      // The server will restart — the page will auto-reload via SocketContext
+    } catch (err) {
+      setUpdating(false);
+      setUpdateError(err.message || 'Erreur lors de la mise à jour');
+    }
+  };
+
+  const formatOffset = (ms) => {
+    const sign = ms >= 0 ? '+' : '';
+    return `${sign}${ms} ms`;
   };
 
   return (
@@ -84,6 +134,38 @@ export default function SettingsView() {
         </div>
       </section>
 
+      {/* ── Global sync offset ── */}
+      <section style={{ marginBottom: 24 }}>
+        <h3 style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 12 }}>
+          Décalage global de synchro
+        </h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => handleOffsetChange(-100)}>
+            − 100 ms
+          </button>
+          <div style={{
+            minWidth: 120, textAlign: 'center', padding: '6px 16px',
+            background: 'var(--bg-secondary)', borderRadius: 6,
+            fontSize: 16, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+            color: currentOffset === 0 ? 'var(--text-secondary)' : currentOffset > 0 ? 'var(--success)' : 'var(--warning)',
+          }}>
+            {formatOffset(currentOffset)}
+          </div>
+          <button className="btn btn-secondary btn-sm" onClick={() => handleOffsetChange(+100)}>
+            + 100 ms
+          </button>
+          {currentOffset !== 0 && (
+            <button className="btn btn-secondary btn-sm" onClick={handleOffsetReset} style={{ marginLeft: 4 }}>
+              Réinitialiser
+            </button>
+          )}
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+          Valeur positive = paroles en avance (anticiper). Valeur négative = paroles en retard (retarder).
+          Ne modifie pas les timecodes enregistrés — correction de lecture uniquement.
+        </p>
+      </section>
+
       {/* Live lock */}
       <section style={{ marginBottom: 24 }}>
         <h3 style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 12 }}>
@@ -108,6 +190,86 @@ export default function SettingsView() {
         <button className="btn btn-secondary" onClick={handleSyncLibrary}>
           Synchroniser maintenant
         </button>
+      </section>
+
+      {/* ── Update system ── */}
+      <section style={{ marginBottom: 24 }}>
+        <h3 style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 12 }}>
+          Mises à jour
+        </h3>
+
+        {/* Current version */}
+        {state.serverVersion && (
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+            Version actuelle : <strong style={{ color: 'var(--text-primary)' }}>{state.serverVersion}</strong>
+          </p>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+          <button
+            className="btn btn-secondary"
+            onClick={handleCheckUpdate}
+            disabled={updateStatus === 'checking' || updating}
+          >
+            {updateStatus === 'checking' ? 'Vérification...' : 'Rechercher les mises à jour'}
+          </button>
+
+          {updateStatus && updateStatus !== 'checking' && updateStatus !== 'error' && !updateStatus.upToDate && (
+            <button
+              className="btn btn-primary"
+              onClick={handleApplyUpdate}
+              disabled={updating}
+            >
+              {updating ? 'Mise à jour en cours...' : 'Appliquer la mise à jour'}
+            </button>
+          )}
+        </div>
+
+        {/* Status messages */}
+        {updating && (
+          <div style={{
+            padding: '12px 16px', borderRadius: 6,
+            background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)',
+            fontSize: 13, color: '#f59e0b', marginBottom: 8,
+          }}>
+            Mise à jour en cours... Le serveur va redémarrer. La page se rechargera automatiquement.
+          </div>
+        )}
+
+        {updateStatus && updateStatus !== 'checking' && updateStatus !== 'error' && updateStatus.upToDate && (
+          <div style={{
+            padding: '8px 12px', borderRadius: 6,
+            background: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)',
+            fontSize: 13, color: 'var(--success)',
+          }}>
+            L'application est à jour.
+          </div>
+        )}
+
+        {updateStatus && updateStatus !== 'checking' && updateStatus !== 'error' && !updateStatus.upToDate && !updating && (
+          <div style={{
+            padding: '8px 12px', borderRadius: 6,
+            background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)',
+            fontSize: 13, color: '#60a5fa',
+          }}>
+            <strong>{updateStatus.behindCount} mise{updateStatus.behindCount > 1 ? 's' : ''} à jour disponible{updateStatus.behindCount > 1 ? 's' : ''}</strong>
+            {updateStatus.summary && (
+              <pre style={{ marginTop: 8, fontSize: 11, opacity: 0.8, whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+                {updateStatus.summary}
+              </pre>
+            )}
+          </div>
+        )}
+
+        {(updateStatus === 'error' || updateError) && (
+          <div style={{
+            padding: '8px 12px', borderRadius: 6,
+            background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)',
+            fontSize: 13, color: '#ef4444',
+          }}>
+            {updateError || 'Erreur lors de la vérification'}
+          </div>
+        )}
       </section>
 
       {/* Session */}

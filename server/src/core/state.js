@@ -36,6 +36,12 @@ const state = {
   // Stage message (prompter)
   stageMessage: '',
 
+  // Global sync offset (ms) — applied to lyrics display only, never modifies stored cues
+  syncOffsetMs: 0,
+
+  // Server version (git short hash) — used for auto-reload after update
+  serverVersion: '',
+
   // Prompter data
   prompter: {
     currentSong: null,

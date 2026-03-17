@@ -73,6 +73,7 @@ export default function MiniPrompter() {
   const queue = state.queue || [];
   const syncMode = state.playback?.syncMode || null;
   const stageMessage = state.stageMessage || '';
+  const syncOffsetMs = state.syncOffsetMs || 0;
 
   const [lyrics, setLyrics] = useState([]);
   const [cues, setCues] = useState([]);
@@ -108,17 +109,17 @@ export default function MiniPrompter() {
     api.get(`/lyrics/${currentSongId}/cues`).then(setCues).catch(() => setCues([]));
   }, [currentSongId]);
 
-  // ── Active line from cues (same as PrompterView) ──
+  // ── Active line from cues (with global sync offset) ──
   useEffect(() => {
     if (cues.length === 0) { setActiveLine(-1); return; }
-    const pos = rs.positionMs || 0;
+    const pos = (rs.positionMs || 0) + syncOffsetMs;
     let active = -1;
     for (const cue of cues) {
       if (pos >= cue.time_ms) active = cue.line_index;
       else break;
     }
     setActiveLine(active);
-  }, [rs.positionMs, cues]);
+  }, [rs.positionMs, cues, syncOffsetMs]);
 
   // ── Auto-scroll active line to center (programmatic only) ──
   // Container uses overflow:hidden so user cannot scroll manually,

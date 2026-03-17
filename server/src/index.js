@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const path = require('path');
 const cors = require('cors');
 
+const { execSync } = require('child_process');
 const config = require('./core/config');
 const { getDb, closeDb } = require('./core/database');
 const { runMigrations } = require('./migrations/run');
@@ -27,6 +28,7 @@ const lyricsRoutes = require('./routes/lyrics');
 const settingsRoutes = require('./routes/settings');
 const historyRoutes = require('./routes/history');
 const logsRoutes = require('./routes/logs');
+const updateRoutes = require('./routes/update');
 
 // ── Bootstrap ────────────────────────────────────────────
 const app = express();
@@ -54,6 +56,7 @@ app.use('/api/lyrics', lyricsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/logs', logsRoutes);
+app.use('/api/update', updateRoutes);
 
 // Full state endpoint
 app.get('/api/state', (req, res) => {
@@ -152,7 +155,17 @@ async function startup() {
   // 2. Load settings into state
   const liveLock = settingsService.get('live_lock') === '1';
   const stageMessage = settingsService.get('stage_message') || '';
-  updateState({ liveLock, stageMessage });
+  const syncOffsetMs = parseInt(settingsService.get('sync_offset_ms') || '0', 10);
+
+  // Read git version for auto-reload detection
+  let serverVersion = '';
+  try {
+    serverVersion = execSync('git rev-parse --short HEAD', { cwd: path.resolve(__dirname, '../..'), encoding: 'utf8' }).trim();
+  } catch (e) {
+    logger.warn('core', 'Could not read git version');
+  }
+
+  updateState({ liveLock, stageMessage, syncOffsetMs, serverVersion });
 
   // 3. Restore session
   session.init();

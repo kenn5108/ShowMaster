@@ -23,6 +23,8 @@ export function SocketProvider({ children }) {
     playback: { mode: 'auto', currentSong: null },
     liveLock: false,
     stageMessage: '',
+    syncOffsetMs: 0,
+    serverVersion: '',
     prompter: {
       currentSong: null,
       nextSong: null,
@@ -35,6 +37,8 @@ export function SocketProvider({ children }) {
   });
 
   const socketRef = useRef(null);
+  const initialVersionRef = useRef(null);
+  const updatePendingRef = useRef(false);
 
   useEffect(() => {
     const socket = io(SOCKET_URL, {
@@ -50,10 +54,38 @@ export function SocketProvider({ children }) {
 
     socket.on('state:full', (fullState) => {
       setState(fullState);
+
+      // Auto-reload after update: compare server version
+      if (fullState.serverVersion) {
+        if (initialVersionRef.current === null) {
+          // First connection — store the version
+          initialVersionRef.current = fullState.serverVersion;
+        } else if (fullState.serverVersion !== initialVersionRef.current) {
+          // Server restarted with a new version → reload
+          console.log('[ShowMaster] New server version detected, reloading...');
+          window.location.reload();
+        }
+      }
+
+      // Also reload if we had an update:applying flag and just reconnected
+      if (updatePendingRef.current) {
+        console.log('[ShowMaster] Reconnected after update, reloading...');
+        window.location.reload();
+      }
     });
 
     socket.on('state:update', (partial) => {
       setState(prev => ({ ...prev, ...partial }));
+    });
+
+    // Listen for update:applying — set flag so we reload on reconnect
+    socket.on('update:applying', () => {
+      updatePendingRef.current = true;
+    });
+
+    // If update failed, clear the pending flag
+    socket.on('update:failed', () => {
+      updatePendingRef.current = false;
     });
 
     return () => {
