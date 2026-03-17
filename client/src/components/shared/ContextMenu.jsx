@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export default function ContextMenu({ x, y, items, onClose }) {
   const ref = useRef(null);
@@ -28,13 +29,7 @@ export default function ContextMenu({ x, y, items, onClose }) {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
-    // Bottom safe zone: mobile transport bar + safe-area-inset-bottom
-    // On desktop/tablet this CSS var resolves to the desktop transport height,
-    // but since the transport is in the normal flow there, the viewport bottom
-    // is already above it.  On mobile the fixed bar sits on top of the viewport.
-    const mobileBar = getComputedStyle(document.documentElement);
-    const barH = parseFloat(mobileBar.getPropertyValue('--mobile-transport-height')) || 0;
-    // On mobile the bar is visible (display:flex); on desktop it's display:none.
+    // Detect mobile transport bar (position: fixed at bottom)
     const mobileTransport = document.querySelector('.mobile-transport');
     const bottomInset = mobileTransport && getComputedStyle(mobileTransport).display !== 'none'
       ? mobileTransport.getBoundingClientRect().height
@@ -50,22 +45,22 @@ export default function ContextMenu({ x, y, items, onClose }) {
     // Clamp left edge
     if (finalX < 8) finalX = 8;
 
-    // Clamp bottom: if menu would be clipped by mobile transport bar (or viewport edge)
+    // Clamp bottom: menu must not be hidden behind mobile transport bar
     const maxBottom = vh - bottomInset - 8;
     if (finalY + rect.height > maxBottom) {
-      // Try placing above the touch point instead
+      // Try placing above the touch point
       const above = y - rect.height;
       finalY = above >= 8 ? above : maxBottom - rect.height;
     }
     // Clamp top edge
     if (finalY < 8) finalY = 8;
 
-    if (finalX !== x || finalY !== y) {
-      setPos({ left: finalX, top: finalY });
-    }
+    setPos({ left: finalX, top: finalY });
   }, [x, y]);
 
-  return (
+  // Portal to document.body — escapes any parent with transform/overflow
+  // that would break position:fixed (e.g. mobile sidebar)
+  return createPortal(
     <div ref={ref} className="context-menu" style={pos}>
       {items.map((item, i) => {
         if (item.separator) {
@@ -84,6 +79,7 @@ export default function ContextMenu({ x, y, items, onClose }) {
           </button>
         );
       })}
-    </div>
+    </div>,
+    document.body
   );
 }
