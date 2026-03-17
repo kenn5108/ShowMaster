@@ -82,6 +82,9 @@ export default function MiniPrompter() {
   const lyricsRef = useRef(null);
   const activeLineRef = useRef(null);
   const hasScrolledOnce = useRef(false);
+  // Track drag state via ref so scroll effect can read it without depending on it
+  const isDraggingRef = useRef(false);
+  isDraggingRef.current = seekDragMs !== null;
 
   // ── Song resolution (same as PrompterView) ──
   const currentQueueItem = useMemo(() => {
@@ -126,10 +129,12 @@ export default function MiniPrompter() {
   // ── Auto-scroll active line to center (programmatic only) ──
   // Container uses overflow:hidden so user cannot scroll manually,
   // but scrollIntoView still works programmatically.
+  // During drag-seek: instant scroll for snappy preview.
+  // Normal playback: smooth scroll after first position.
   useEffect(() => {
     if (!activeLineRef.current) return;
-    const behavior = hasScrolledOnce.current ? 'smooth' : 'instant';
-    activeLineRef.current.scrollIntoView({ behavior, block: 'center' });
+    const useInstant = !hasScrolledOnce.current || isDraggingRef.current;
+    activeLineRef.current.scrollIntoView({ behavior: useInstant ? 'instant' : 'smooth', block: 'center' });
     hasScrolledOnce.current = true;
   }, [activeLine]);
   useEffect(() => { hasScrolledOnce.current = false; }, [currentSongId]);
