@@ -120,11 +120,19 @@ export default function MiniPrompter() {
     setActiveLine(active);
   }, [rs.positionMs, cues]);
 
-  // ── Auto-scroll active line to center (same as PrompterView) ──
+  // ── Auto-scroll active line to center (programmatic only) ──
+  // Container uses overflow:hidden so user cannot scroll manually.
+  // We set scrollTop directly — overflow:hidden still allows programmatic scrolling.
   useEffect(() => {
-    if (!activeLineRef.current) return;
-    const behavior = hasScrolledOnce.current ? 'smooth' : 'instant';
-    activeLineRef.current.scrollIntoView({ behavior, block: 'center' });
+    const container = lyricsRef.current;
+    const el = activeLineRef.current;
+    if (!container || !el) return;
+    const target = el.offsetTop - container.clientHeight / 2 + el.clientHeight / 2;
+    if (hasScrolledOnce.current) {
+      container.scrollTo({ top: target, behavior: 'smooth' });
+    } else {
+      container.scrollTop = target;
+    }
     hasScrolledOnce.current = true;
   }, [activeLine]);
   useEffect(() => { hasScrolledOnce.current = false; }, [currentSongId]);
@@ -161,19 +169,19 @@ export default function MiniPrompter() {
         )}
       </div>
 
-      {/* Hide scrollbar (WebKit) — scoped to this component only */}
-      <style>{`.mini-prompter-scroll::-webkit-scrollbar { display: none; }`}</style>
-
-      {/* ── Lyrics area ── */}
+      {/* ── Lyrics area — display only, no user interaction ── */}
       {title ? (
         <div
           ref={lyricsRef}
-          className="mini-prompter-scroll"
           style={{
-            flex: 1, overflowY: 'auto', padding: '0 8px',
+            flex: 1, overflow: 'hidden', padding: '0 8px',
             textAlign: 'center',
-            scrollbarWidth: 'none', msOverflowStyle: 'none',
+            userSelect: 'none', WebkitUserSelect: 'none',
+            touchAction: 'none',
           }}
+          onTouchStart={e => e.preventDefault()}
+          onTouchMove={e => e.preventDefault()}
+          onWheel={e => e.preventDefault()}
         >
           {lyrics.length > 0 ? (
             <>

@@ -130,20 +130,30 @@ export default function FocusPrompter({ onClose }) {
     setActiveLine(active);
   }, [rs.positionMs, cues]);
 
-  // ── Auto-scroll active line to center ──
+  // ── Auto-scroll active line to center (programmatic only) ──
+  // Container uses overflow:hidden so user cannot scroll manually.
+  // We set scrollTop directly — overflow:hidden still allows programmatic scrolling.
   const hasScrolledOnce = useRef(false);
   useEffect(() => {
-    if (!activeRef.current) return;
-    const behavior = hasScrolledOnce.current ? 'smooth' : 'instant';
-    activeRef.current.scrollIntoView({ behavior, block: 'center' });
+    const container = lyricsContainerRef.current;
+    const el = activeRef.current;
+    if (!container || !el) return;
+    const target = el.offsetTop - container.clientHeight / 2 + el.clientHeight / 2;
+    if (hasScrolledOnce.current) {
+      container.scrollTo({ top: target, behavior: 'smooth' });
+    } else {
+      container.scrollTop = target;
+    }
     hasScrolledOnce.current = true;
   }, [activeLine]);
   useEffect(() => { hasScrolledOnce.current = false; }, [currentSongId]);
 
   // ── Initial positioning: center first line before playback starts ──
   useEffect(() => {
-    if (lyrics.length > 0 && activeLine === -1 && firstLineRef.current) {
-      firstLineRef.current.scrollIntoView({ behavior: 'instant', block: 'center' });
+    const container = lyricsContainerRef.current;
+    const el = firstLineRef.current;
+    if (lyrics.length > 0 && activeLine === -1 && container && el) {
+      container.scrollTop = el.offsetTop - container.clientHeight / 2 + el.clientHeight / 2;
     }
   }, [lyrics, activeLine]);
 
@@ -258,12 +268,13 @@ export default function FocusPrompter({ onClose }) {
           </div>
         )}
 
-        {/* ── Lyrics ── */}
+        {/* ── Lyrics — display only, no user interaction ── */}
         <div
           ref={lyricsContainerRef}
-          style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 24px', textAlign: 'center', touchAction: 'none', overscrollBehavior: 'none', WebkitOverflowScrolling: 'auto' }}
+          style={{ flex: 1, minHeight: 0, overflow: 'hidden', padding: '0 24px', textAlign: 'center', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
           onTouchStart={e => e.preventDefault()}
           onTouchMove={e => e.preventDefault()}
+          onWheel={e => e.preventDefault()}
         >
           {lyrics.length > 0 ? (
             <>
