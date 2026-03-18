@@ -112,12 +112,15 @@ NODE_BIN=$(command -v node)
 NODE_BIN_DIR=$(dirname "$NODE_BIN")
 info "Chemin Node.js : $NODE_BIN_DIR"
 
+# ── Ensure NODE_ENV doesn't block devDependencies install ──
+unset NODE_ENV
+
 # ── Install dependencies ──
 info "Installation des dépendances serveur..."
 cd "$INSTALL_DIR"
 npm install --omit=dev --no-audit --no-fund
 
-info "Installation des dépendances client..."
+info "Installation des dépendances client (avec devDeps pour le build)..."
 cd "$INSTALL_DIR/client"
 npm install --no-audit --no-fund
 
