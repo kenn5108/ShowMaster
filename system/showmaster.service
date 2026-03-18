@@ -6,11 +6,13 @@ After=network.target
 Type=simple
 User=__USER__
 WorkingDirectory=__INSTALL_DIR__
-ExecStart=/usr/bin/node server/src/index.js
-Restart=on-failure
-RestartSec=5
+# Use the exact Node binary detected at install time (nvm, fnm, or system)
+Environment=PATH=__NODE_BIN_DIR__:/usr/local/bin:/usr/bin:/bin
 Environment=NODE_ENV=production
 Environment=SM_PORT=3000
+ExecStart=__NODE_BIN_DIR__/node server/src/index.js
+Restart=on-failure
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target

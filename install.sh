@@ -3,16 +3,14 @@
 # ShowMaster V2 — Installation script
 #
 # Usage:
-#   curl -sSL https://raw.githubusercontent.com/VOTRE_USER/ShowMaster/master/install.sh | bash
-#   or:
 #   cd ~/ShowMaster && bash install.sh
 #
 # What this script does:
-#   1. Detects environment (user, node, install directory)
+#   1. Installs Node.js 20 via nvm (if not already available)
 #   2. Installs server + client dependencies
 #   3. Builds the client
 #   4. Runs database migrations
-#   5. Creates the systemd service
+#   5. Creates the systemd service (with correct Node path)
 #   6. Configures sudoers for passwordless restart
 #   7. Starts ShowMaster
 #
@@ -51,35 +49,68 @@ echo ""
 info "Répertoire d'installation : $INSTALL_DIR"
 info "Utilisateur : $CURRENT_USER"
 
-# ── Check prerequisites ──
-info "Vérification des prérequis..."
-
-# Node.js
-if ! command -v node &>/dev/null; then
-  fail "Node.js n'est pas installé. Installez Node.js 18+ avant de continuer."
-fi
-NODE_VERSION=$(node -v | sed 's/v//' | cut -d. -f1)
-if [ "$NODE_VERSION" -lt 18 ]; then
-  fail "Node.js 18+ requis (version actuelle : $(node -v))"
-fi
-ok "Node.js $(node -v)"
-
-# npm
-if ! command -v npm &>/dev/null; then
-  fail "npm n'est pas installé."
-fi
-ok "npm $(npm -v)"
-
-# Git
+# ── Check Git ──
 if ! command -v git &>/dev/null; then
-  fail "Git n'est pas installé."
+  fail "Git n'est pas installé. Installez-le : sudo apt install -y git"
 fi
-ok "Git $(git --version | cut -d' ' -f3)"
 
-# Check we're in a git repo
 if [ ! -d "$INSTALL_DIR/.git" ]; then
   fail "Ce répertoire n'est pas un dépôt Git. Clonez d'abord le projet."
 fi
+
+# ── Ensure Node.js 18+ is available ──
+info "Vérification de Node.js..."
+
+# Try loading existing Node.js via env.sh
+chmod +x "$INSTALL_DIR/scripts/env.sh" 2>/dev/null || true
+NODE_OK=false
+# shellcheck disable=SC1091
+if source "$INSTALL_DIR/scripts/env.sh" 2>/dev/null; then
+  NODE_OK=true
+  ok "Node.js $(node -v) trouvé via $SM_NODE_SOURCE"
+fi
+
+# If no suitable Node.js, install via nvm
+if [ "$NODE_OK" = false ]; then
+  warn "Node.js 18+ introuvable. Installation de Node.js 20 via nvm..."
+
+  # Install nvm if not present
+  if [ ! -d "$HOME/.nvm" ]; then
+    info "Installation de nvm..."
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+  fi
+
+  # Load nvm
+  export NVM_DIR="$HOME/.nvm"
+  # shellcheck disable=SC1091
+  source "$NVM_DIR/nvm.sh" || fail "Impossible de charger nvm"
+
+  # Install Node.js 20
+  info "Installation de Node.js 20..."
+  nvm install 20
+  nvm use 20
+  nvm alias default 20
+
+  # Verify
+  if ! command -v node &>/dev/null; then
+    fail "L'installation de Node.js a échoué"
+  fi
+
+  NODE_VER=$(node -v | sed 's/v//' | cut -d. -f1)
+  if [ "$NODE_VER" -lt 18 ]; then
+    fail "Node.js 18+ requis après installation (version : $(node -v))"
+  fi
+
+  ok "Node.js $(node -v) installé via nvm"
+fi
+
+ok "npm $(npm -v)"
+ok "Git $(git --version | cut -d' ' -f3)"
+
+# ── Resolve the actual node binary path (for systemd) ──
+NODE_BIN=$(command -v node)
+NODE_BIN_DIR=$(dirname "$NODE_BIN")
+info "Chemin Node.js : $NODE_BIN_DIR"
 
 # ── Install dependencies ──
 info "Installation des dépendances serveur..."
@@ -106,10 +137,11 @@ mkdir -p "$INSTALL_DIR/data"
 # ── Setup systemd service ──
 info "Configuration du service systemd..."
 
-# Generate service file from template
+# Generate service file from template, injecting the real Node binary path
 SERVICE_CONTENT=$(cat "$INSTALL_DIR/system/showmaster.service" \
   | sed "s|__USER__|${CURRENT_USER}|g" \
-  | sed "s|__INSTALL_DIR__|${INSTALL_DIR}|g")
+  | sed "s|__INSTALL_DIR__|${INSTALL_DIR}|g" \
+  | sed "s|__NODE_BIN_DIR__|${NODE_BIN_DIR}|g")
 
 # Write service file (requires sudo)
 echo "$SERVICE_CONTENT" | sudo tee "$SERVICE_FILE" > /dev/null
@@ -133,19 +165,21 @@ fi
 
 # ── Make scripts executable ──
 chmod +x "$INSTALL_DIR/scripts/update.sh"
+chmod +x "$INSTALL_DIR/scripts/env.sh"
 
 # ── Enable and start service ──
 info "Démarrage du service..."
 sudo systemctl daemon-reload
 sudo systemctl enable "$SERVICE_NAME"
-sudo systemctl start "$SERVICE_NAME"
+sudo systemctl restart "$SERVICE_NAME"
 
 # ── Wait and verify ──
 sleep 2
 if sudo systemctl is-active --quiet "$SERVICE_NAME"; then
   ok "Service démarré avec succès"
 else
-  warn "Le service ne semble pas démarré. Vérifiez avec : sudo journalctl -u $SERVICE_NAME -f"
+  warn "Le service ne semble pas démarré. Vérifiez avec :"
+  warn "  sudo journalctl -u $SERVICE_NAME -f"
 fi
 
 # ── Get IP address ──

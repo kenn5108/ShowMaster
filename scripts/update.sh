@@ -2,7 +2,7 @@
 # ──────────────────────────────────────────────────────────────
 # ShowMaster — update script
 # Called by the server (POST /api/update/apply) or manually.
-# Steps: git pull → npm install → vite build → systemctl restart
+# Steps: load env → git pull → npm install → vite build → systemctl restart
 # ──────────────────────────────────────────────────────────────
 set -e
 
@@ -11,6 +11,16 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 echo "[ShowMaster] Starting update..."
 echo "[ShowMaster] Project directory: $PROJECT_DIR"
+
+# 0. Load Node.js environment (nvm, fnm, or system)
+echo "[ShowMaster] Loading Node.js environment..."
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/env.sh" || {
+  echo "[ShowMaster] ERREUR : impossible de charger l'environnement Node.js"
+  exit 1
+}
+echo "[ShowMaster] Node $(node -v) via $SM_NODE_SOURCE"
+echo "[ShowMaster] npm $(npm -v)"
 
 # 1. Pull latest code
 echo "[ShowMaster] Pulling latest code..."
