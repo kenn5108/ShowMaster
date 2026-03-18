@@ -1,6 +1,7 @@
 const { getDb } = require('../core/database');
 const { getState, updateState } = require('../core/state');
 const logger = require('../core/logger');
+const pluginEvents = require('../core/plugins/events');
 
 /**
  * QueueManager — persistent queue, session-scoped.
@@ -44,6 +45,7 @@ function load() {
   }));
 
   updateState({ queue });
+  pluginEvents.emit('queue:changed', queue);
   return queue;
 }
 
@@ -88,7 +90,9 @@ function add(songId, position = 'bottom') {
   }
 
   logger.info('queue', `Added song #${songId} at ${position}`);
-  return load();
+  const result = load();
+  pluginEvents.emit('queue:item-added', { songId, position, queue: result });
+  return result;
 }
 
 /**

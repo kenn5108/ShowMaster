@@ -5,6 +5,7 @@ const library = require('./library');
 const history = require('./history');
 const settings = require('./settings');
 const logger = require('../core/logger');
+const pluginEvents = require('../core/plugins/events');
 
 let lastPlayerState = 'STOPPED';
 let lastComposition = null;
@@ -141,6 +142,13 @@ function onPollUpdate() {
     remainingMs: Math.max(0, rs.durationMs - rs.positionMs),
   });
 
+  // Plugin event: poll tick (fires every 500ms, plugins can use for position tracking)
+  pluginEvents.emit('playback:state', {
+    playerState: currentState,
+    positionMs: rs.positionMs,
+    durationMs: rs.durationMs,
+  });
+
   lastPlayerState = currentState;
   lastComposition = currentComp;
 }
@@ -157,6 +165,10 @@ function onSongStart(compositionName, playerState) {
     updateNested('playback', { currentSong: song });
     logger.info('playback', `Composition loaded: ${song.title} - ${song.artist}`);
     // NOTE: history is NOT recorded here. It is tracked via PLAYING state detection in onPollUpdate.
+
+    // Plugin event
+    const currentItem = getState().queue.find(q => q.is_current === 1) || null;
+    pluginEvents.emit('playback:song-start', { song, queueItem: currentItem });
   }
 }
 
@@ -173,6 +185,14 @@ function onSongEnd() {
   const currentSong = getState().playback.currentSong;
   if (currentSong) {
     logger.info('playback', `Song ended: ${currentSong.title}`);
+
+    // Plugin event
+    const currentItem = getState().queue.find(q => q.is_current === 1) || null;
+    pluginEvents.emit('playback:song-end', {
+      song: currentSong,
+      queueItem: currentItem,
+      playedMs: historyTrack.playingMs || 0,
+    });
   }
 
   const mode = getState().playback.mode;

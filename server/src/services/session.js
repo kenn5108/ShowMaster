@@ -1,6 +1,7 @@
 const { getDb } = require('../core/database');
 const { getState, updateState } = require('../core/state');
 const logger = require('../core/logger');
+const pluginEvents = require('../core/plugins/events');
 
 /**
  * SessionManager — handles session lifecycle.
@@ -37,6 +38,7 @@ function open(venue) {
   const session = { id: result.lastInsertRowid, venue: venue.trim(), opened_at: new Date().toISOString() };
   updateState({ session });
   logger.info('session', `Opened session #${session.id} at "${session.venue}"`);
+  pluginEvents.emit('session:opened', session);
   return session;
 }
 
@@ -61,6 +63,7 @@ function close() {
 
   updateState({ session: null });
   logger.info('session', `Closed session #${current.id}`);
+  pluginEvents.emit('session:closed');
 }
 
 function getCurrent() {

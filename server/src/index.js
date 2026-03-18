@@ -181,7 +181,17 @@ async function startup() {
   rocketshow.onAfterPoll(() => playback.onPollUpdate());
   rocketshow.start();
 
-  // 7. Start HTTP server
+  // 7. Load plugins (if any)
+  try {
+    const { initialize } = require('./core/plugins/api');
+    const { loadPlugins } = require('./core/plugins/loader');
+    initialize({ io, app, queue });
+    await loadPlugins();
+  } catch (err) {
+    logger.warn('plugins', `Plugin system init failed (non-fatal): ${err.message}`);
+  }
+
+  // 8. Start HTTP server
   httpServer.listen(config.port, config.host, () => {
     logger.info('core', `Server listening on http://${config.host}:${config.port}`);
     logger.info('core', `Control UI: http://localhost:${config.port}/`);
