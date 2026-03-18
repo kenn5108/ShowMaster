@@ -63,25 +63,8 @@ app.get('/api/state', (req, res) => {
   res.json(getState());
 });
 
-// Serve React client (production)
-// Assets (JS/CSS) have content hashes in filenames → cache forever
-// index.html must NEVER be cached → browser always gets latest version
-const clientDist = config.clientDist;
-app.use(express.static(clientDist, {
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-    }
-  },
-}));
-app.get('*', (req, res) => {
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  res.sendFile(path.join(clientDist, 'index.html'));
-});
+// NOTE: Static files + catch-all are registered AFTER plugin loading in startup()
+// to ensure plugin routes (e.g. /api/plugins/jukebox/status) are reachable.
 
 // ── Socket.IO ────────────────────────────────────────────
 io.on('connection', (socket) => {
@@ -194,7 +177,25 @@ async function startup() {
     updateState({ plugins: [] });
   }
 
-  // 8. Start HTTP server
+  // 8. Serve React client (AFTER plugin routes to avoid catch-all conflict)
+  const clientDist = config.clientDist;
+  app.use(express.static(clientDist, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      }
+    },
+  }));
+  app.get('*', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+
+  // 9. Start HTTP server
   httpServer.listen(config.port, config.host, () => {
     logger.info('core', `Server listening on http://${config.host}:${config.port}`);
     logger.info('core', `Control UI: http://localhost:${config.port}/`);

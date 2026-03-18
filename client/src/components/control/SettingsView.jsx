@@ -291,6 +291,11 @@ export default function SettingsView() {
           </div>
 
           {/* Status indicators */}
+          {!jukeboxStatus && (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '8px 0' }}>
+              Chargement du statut...
+            </div>
+          )}
           {jukeboxStatus && (
             <div style={{
               padding: '10px 14px', borderRadius: 6,
