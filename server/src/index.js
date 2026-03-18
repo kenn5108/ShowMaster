@@ -184,11 +184,14 @@ async function startup() {
   // 7. Load plugins (if any)
   try {
     const { initialize } = require('./core/plugins/api');
-    const { loadPlugins } = require('./core/plugins/loader');
+    const { loadPlugins, getLoadedPlugins } = require('./core/plugins/loader');
     initialize({ io, app, queue });
     await loadPlugins();
+    // Expose loaded plugins to client via state
+    updateState({ plugins: getLoadedPlugins().map(p => ({ name: p.name, version: p.version })) });
   } catch (err) {
     logger.warn('plugins', `Plugin system init failed (non-fatal): ${err.message}`);
+    updateState({ plugins: [] });
   }
 
   // 8. Start HTTP server

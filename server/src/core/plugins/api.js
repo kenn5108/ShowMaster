@@ -4,7 +4,7 @@
  * Provides controlled access to ShowMaster internals.
  * Plugins receive this object and should NOT require() core modules directly.
  */
-const { getState } = require('../state');
+const { getState, updateState } = require('../state');
 const { getDb } = require('../database');
 const logger = require('../logger');
 const pluginEvents = require('./events');
@@ -99,6 +99,15 @@ function createPluginAPI(pluginName) {
         }
         return result;
       },
+    },
+
+    // ── Stage message (for dedications, announcements) ──
+    setStageMessage(message) {
+      settingsService.set('stage_message', message);
+      updateState({ stageMessage: message });
+    },
+    getStageMessage() {
+      return getState().stageMessage || '';
     },
 
     // ── HTTP routes (register plugin-specific routes) ──

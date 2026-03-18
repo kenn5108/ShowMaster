@@ -8,13 +8,28 @@ export default function SettingsView() {
   const [saved, setSaved] = useState(false);
 
   // ── Update state ──
-  const [updateStatus, setUpdateStatus] = useState(null); // null | 'checking' | { upToDate, behindCount, summary, ... } | 'error'
+  const [updateStatus, setUpdateStatus] = useState(null);
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState('');
+
+  // ── Jukebox plugin detection ──
+  const jukeboxInstalled = state.plugins?.some(p => p.name === 'jukebox');
+  const [jukeboxStatus, setJukeboxStatus] = useState(null);
 
   useEffect(() => {
     api.get('/settings').then(setSettings).catch(() => {});
   }, []);
+
+  // Fetch Jukebox status if plugin is installed
+  useEffect(() => {
+    if (!jukeboxInstalled) return;
+    const fetchStatus = () => {
+      api.get('/plugins/jukebox/status').then(setJukeboxStatus).catch(() => {});
+    };
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 10000);
+    return () => clearInterval(interval);
+  }, [jukeboxInstalled]);
 
   const handleChange = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -250,6 +265,118 @@ export default function SettingsView() {
           </div>
         )}
       </section>
+
+      {/* ── Jukebox (visible ONLY if plugin is installed) ── */}
+      {jukeboxInstalled && (
+        <section style={{ marginBottom: 24 }}>
+          <h3 style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 12 }}>
+            Jukebox
+          </h3>
+
+          {/* ON/OFF toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+            <button
+              className={`btn btn-sm ${settings['plugin:jukebox:enabled'] !== '0' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={async () => {
+                const newVal = settings['plugin:jukebox:enabled'] === '0' ? '1' : '0';
+                await api.patch('/settings', { 'plugin:jukebox:enabled': newVal });
+                setSettings(prev => ({ ...prev, 'plugin:jukebox:enabled': newVal }));
+              }}
+            >
+              {settings['plugin:jukebox:enabled'] === '0' ? 'Désactivé' : 'Activé'}
+            </button>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              Redémarrage requis pour appliquer
+            </span>
+          </div>
+
+          {/* Status indicators */}
+          {jukeboxStatus && (
+            <div style={{
+              padding: '10px 14px', borderRadius: 6,
+              background: 'var(--bg-secondary)', fontSize: 12,
+              display: 'flex', flexDirection: 'column', gap: 6,
+            }}>
+              {/* Server */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <span style={{ color: 'var(--text-muted)', minWidth: 100 }}>Serveur</span>
+                <span style={{ color: jukeboxStatus.serverUrl ? 'var(--text-primary)' : 'var(--warning)' }}>
+                  {jukeboxStatus.serverUrl || 'Non configuré'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <span style={{ color: 'var(--text-muted)', minWidth: 100 }}>Clé API</span>
+                <span style={{ color: jukeboxStatus.apiKeySet ? 'var(--success)' : 'var(--warning)' }}>
+                  {jukeboxStatus.apiKeySet ? 'Configurée' : 'Non configurée'}
+                </span>
+              </div>
+
+              {/* Poll status */}
+              {jukeboxStatus.poll?.lastPollAt && (
+                <>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <span style={{ color: 'var(--text-muted)', minWidth: 100 }}>Dernier poll</span>
+                    <span style={{ color: jukeboxStatus.poll.lastPollOk ? 'var(--success)' : '#ef4444' }}>
+                      {jukeboxStatus.poll.lastPollOk ? 'OK' : 'Erreur'}
+                      {' — '}
+                      {new Date(jukeboxStatus.poll.lastPollAt).toLocaleTimeString('fr-FR')}
+                    </span>
+                  </div>
+                  {jukeboxStatus.poll.lastPollError && (
+                    <div style={{ color: '#ef4444', fontSize: 11, paddingLeft: 108 }}>
+                      {jukeboxStatus.poll.lastPollError}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Last request */}
+              {jukeboxStatus.poll?.lastRequestTitle && (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <span style={{ color: 'var(--text-muted)', minWidth: 100 }}>Dernière demande</span>
+                  <span style={{ color: 'var(--text-primary)' }}>
+                    {jukeboxStatus.poll.lastRequestTitle}
+                    {jukeboxStatus.poll.lastRequestAt && (
+                      <span style={{ color: 'var(--text-muted)', marginLeft: 6 }}>
+                        {new Date(jukeboxStatus.poll.lastRequestAt).toLocaleTimeString('fr-FR')}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              )}
+
+              {/* Last played */}
+              {jukeboxStatus.played?.lastPlayedTitle && (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <span style={{ color: 'var(--text-muted)', minWidth: 100 }}>Dernier played</span>
+                  <span style={{ color: jukeboxStatus.played.lastPlayedOk ? 'var(--success)' : '#ef4444' }}>
+                    {jukeboxStatus.played.lastPlayedTitle}
+                    {jukeboxStatus.played.lastPlayedAt && (
+                      <span style={{ color: 'var(--text-muted)', marginLeft: 6 }}>
+                        {new Date(jukeboxStatus.played.lastPlayedAt).toLocaleTimeString('fr-FR')}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              )}
+
+              {/* Totals */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <span style={{ color: 'var(--text-muted)', minWidth: 100 }}>Demandes</span>
+                <span style={{ color: 'var(--text-primary)' }}>
+                  {jukeboxStatus.poll?.totalProcessed || 0} traitée(s)
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <span style={{ color: 'var(--text-muted)', minWidth: 100 }}>Played</span>
+                <span style={{ color: 'var(--text-primary)' }}>
+                  {jukeboxStatus.played?.totalReported || 0} reporté(s)
+                </span>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Session */}
       <section style={{ marginBottom: 24 }}>
