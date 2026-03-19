@@ -15,18 +15,22 @@ export default function SettingsView() {
   // ── Jukebox plugin detection ──
   const jukeboxInstalled = state.plugins?.some(p => p.name === 'jukebox');
   const [jukeboxStatus, setJukeboxStatus] = useState(null);
+  const [jukeboxTags, setJukeboxTags] = useState(null);
+  const [syncingCatalog, setSyncingCatalog] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
 
   useEffect(() => {
     api.get('/settings').then(setSettings).catch(() => {});
   }, []);
 
-  // Fetch Jukebox status if plugin is installed
+  // Fetch Jukebox status + tags if plugin is installed
   useEffect(() => {
     if (!jukeboxInstalled) return;
     const fetchStatus = () => {
       api.get('/plugins/jukebox/status').then(setJukeboxStatus).catch(() => {});
     };
     fetchStatus();
+    api.get('/plugins/jukebox/tags').then(setJukeboxTags).catch(() => {});
     const interval = setInterval(fetchStatus, 10000);
     return () => clearInterval(interval);
   }, [jukeboxInstalled]);
@@ -377,6 +381,76 @@ export default function SettingsView() {
                 <span style={{ color: 'var(--text-primary)' }}>
                   {jukeboxStatus.played?.totalReported || 0} reporté(s)
                 </span>
+              </div>
+            </div>
+          )}
+
+          {/* ── Catalog sync ── */}
+          <div style={{ marginTop: 16 }}>
+            <h4 style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>Synchronisation catalogue</h4>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+              <button
+                className="btn btn-sm btn-secondary"
+                disabled={syncingCatalog}
+                onClick={async () => {
+                  setSyncingCatalog(true);
+                  setSyncResult(null);
+                  try {
+                    const res = await api.post('/plugins/jukebox/sync-catalog');
+                    setSyncResult(res);
+                  } catch (err) {
+                    setSyncResult({ ok: false, error: err.message });
+                  }
+                  setSyncingCatalog(false);
+                }}
+              >
+                {syncingCatalog ? 'Sync en cours...' : 'Synchroniser maintenant'}
+              </button>
+              {syncResult && (
+                <span style={{ fontSize: 12, color: syncResult.ok ? 'var(--success)' : '#ef4444' }}>
+                  {syncResult.ok
+                    ? `${syncResult.total || 0} chansons (${syncResult.inserted || 0} new, ${syncResult.updated || 0} maj, ${syncResult.deactivated || 0} désact.)`
+                    : syncResult.error
+                  }
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* ── Tags visibility ── */}
+          {jukeboxTags?.tags && jukeboxTags.tags.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <h4 style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>Tags publiés vers Jukebox</h4>
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
+                Les tags masqués ne seront pas envoyés au Jukebox public.
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {jukeboxTags.tags.map(tag => (
+                  <button
+                    key={tag.name}
+                    className={`btn btn-sm ${tag.hidden ? 'btn-secondary' : 'btn-primary'}`}
+                    style={{
+                      fontSize: 11, padding: '3px 10px',
+                      opacity: tag.hidden ? 0.5 : 1,
+                      textDecoration: tag.hidden ? 'line-through' : 'none',
+                    }}
+                    onClick={async () => {
+                      const current = jukeboxTags.tags;
+                      const newHidden = tag.hidden
+                        ? current.filter(t => t.hidden && t.name !== tag.name).map(t => t.name)
+                        : [...current.filter(t => t.hidden).map(t => t.name), tag.name];
+                      await api.patch('/plugins/jukebox/tags', { hidden_tags: newHidden });
+                      setJukeboxTags({
+                        tags: current.map(t => ({
+                          ...t,
+                          hidden: newHidden.includes(t.name),
+                        })),
+                      });
+                    }}
+                  >
+                    {tag.name}
+                  </button>
+                ))}
               </div>
             </div>
           )}

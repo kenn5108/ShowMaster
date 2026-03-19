@@ -336,7 +336,7 @@ function getByRsName(rsName) {
 }
 
 function update(id, fields) {
-  const allowed = ['tags', 'key_signature', 'bpm'];
+  const allowed = ['tags', 'key_signature', 'bpm', 'jukebox_visible'];
   const sets = [];
   const values = [];
 
