@@ -180,14 +180,17 @@ export default function SettingsView() {
         </p>
       </section>
 
-      {/* Library sync */}
+      {/* Library sync from RocketShow */}
       <section style={{ marginBottom: 24 }}>
         <h3 style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 12 }}>
-          Synchronisation bibliothèque
+          Bibliothèque RocketShow
         </h3>
         <button className="btn btn-secondary" onClick={handleSyncLibrary}>
-          Synchroniser maintenant
+          Resynchroniser depuis RocketShow
         </button>
+        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+          Importe les compositions depuis RocketShow dans la bibliothèque ShowMaster.
+        </p>
       </section>
 
       {/* ── Update system ── */}
