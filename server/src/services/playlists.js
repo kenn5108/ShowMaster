@@ -61,7 +61,8 @@ function getItems(playlistId, sortBy = 'position', sortDir = 'asc') {
 
   return getDb().prepare(`
     SELECT pi.id, pi.playlist_id, pi.song_id, pi.position,
-           s.title, s.artist, s.duration_ms, s.rs_name, s.tags, s.key_signature, s.bpm
+           s.title, s.artist, s.duration_ms, s.rs_name, s.tags, s.key_signature, s.bpm,
+           s.jukebox_visible
     FROM playlist_items pi
     JOIN songs s ON s.id = pi.song_id
     WHERE pi.playlist_id = ?

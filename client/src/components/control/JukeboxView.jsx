@@ -15,6 +15,7 @@ export default function JukeboxView() {
   const [tags, setTags] = useState(null);
   const [syncingCatalog, setSyncingCatalog] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
+  const [toggling, setToggling] = useState(false);
 
   // Fetch status periodically
   useEffect(() => {
@@ -82,6 +83,29 @@ export default function JukeboxView() {
             background: 'var(--bg-secondary)',
             display: 'flex', flexDirection: 'column',
           }}>
+            {/* Connection toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0', marginBottom: 4 }}>
+              <span style={{ color: 'var(--text-muted)', minWidth: 130, fontSize: 12 }}>Connexion</span>
+              <button
+                className={`btn btn-sm ${status.connected ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ fontSize: 11, padding: '2px 12px' }}
+                disabled={toggling}
+                onClick={async () => {
+                  setToggling(true);
+                  try {
+                    await api.post('/plugins/jukebox/toggle');
+                  } catch {}
+                  // Refresh status
+                  try {
+                    const s = await api.get('/plugins/jukebox/status');
+                    setStatus(s);
+                  } catch {}
+                  setToggling(false);
+                }}
+              >
+                {status.connected ? 'Active' : 'Inactive'}
+              </button>
+            </div>
             {statusRow('Serveur', status.serverUrl || 'Non configuré',
               status.serverUrl ? 'var(--text-primary)' : 'var(--warning)')}
             {statusRow('Clé API', status.apiKeySet ? 'Configurée' : 'Non configurée',

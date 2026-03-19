@@ -124,15 +124,29 @@ export default function LibraryView({ onNavigate }) {
       return;
     }
 
-    setContextMenu({
-      x, y,
-      items: [
-        { label: 'Ajouter à une playlist', onClick: () => { api.get('/playlists').then(setPlaylists).catch(() => {}); setPlaylistPicker({ songId: song.id }); } },
+    const items = [
+      { label: 'Ajouter à une playlist', onClick: () => { api.get('/playlists').then(setPlaylists).catch(() => {}); setPlaylistPicker({ songId: song.id }); } },
+      { separator: true },
+      { label: 'Éditer les paroles', onClick: () => onNavigate('lyrics', { songId: song.id }) },
+      { label: 'Ouvrir la synchro', onClick: () => onNavigate('sync', { songId: song.id }) },
+    ];
+
+    // Jukebox toggle (only if plugin installed)
+    if (state.plugins?.some(p => p.name === 'jukebox')) {
+      const isVisible = song.jukebox_visible !== 0;
+      items.push(
         { separator: true },
-        { label: 'Éditer les paroles', onClick: () => onNavigate('lyrics', { songId: song.id }) },
-        { label: 'Ouvrir la synchro', onClick: () => onNavigate('sync', { songId: song.id }) },
-      ],
-    });
+        {
+          label: isVisible ? 'Masquer du Jukebox' : 'Publier sur Jukebox',
+          onClick: async () => {
+            await api.patch(`/plugins/jukebox/songs/${song.id}/visible`, { visible: !isVisible });
+            loadSongs();
+          },
+        }
+      );
+    }
+
+    setContextMenu({ x, y, items });
   };
 
   // ── Missing song: short press ──
@@ -561,7 +575,11 @@ function SongRow({ song, onShortPress, onLongPress, selected, onToggleSelect, sh
       )}
       <td>
         <div className="song-info">
-          <span className="song-title">{song.title}</span>
+          <span className="song-title" style={
+            state.plugins?.some(p => p.name === 'jukebox')
+              ? { borderBottom: `2px solid ${song.jukebox_visible !== 0 ? 'var(--success)' : '#ef4444'}` }
+              : undefined
+          }>{song.title}</span>
           {missing && <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 600, flexShrink: 0 }}>MANQUANTE</span>}
           {song.key_signature && <span className="badge badge-key">{song.key_signature}</span>}
           {song.bpm && <span className="badge badge-bpm">{song.bpm} BPM</span>}

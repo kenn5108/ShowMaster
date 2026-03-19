@@ -98,17 +98,30 @@ export default function PlaylistView({ playlistId, onNavigate }) {
   const handleLongPress = useCallback((item, e) => {
     const x = e?.touches?.[0]?.clientX || e?.clientX || 200;
     const y = e?.touches?.[0]?.clientY || e?.clientY || 200;
-    setContextMenu({
-      x, y,
-      items: [
-        { label: 'Ajouter à une playlist', onClick: () => { api.get('/playlists').then(setAllPlaylists).catch(() => {}); setPlaylistPicker({ songId: item.song_id, title: item.title }); } },
-        { label: 'Supprimer de la playlist', onClick: () => { api.delete(`/playlists/${playlistId}/items/${item.id}`).then(loadItems); } },
+    const items = [
+      { label: 'Ajouter à une playlist', onClick: () => { api.get('/playlists').then(setAllPlaylists).catch(() => {}); setPlaylistPicker({ songId: item.song_id, title: item.title }); } },
+      { label: 'Supprimer de la playlist', onClick: () => { api.delete(`/playlists/${playlistId}/items/${item.id}`).then(loadItems); } },
+      { separator: true },
+      { label: 'Éditer les paroles', onClick: () => onNavigate('lyrics', { songId: item.song_id }) },
+      { label: 'Ouvrir la synchro', onClick: () => onNavigate('sync', { songId: item.song_id }) },
+    ];
+
+    if (state.plugins?.some(p => p.name === 'jukebox')) {
+      const isVisible = item.jukebox_visible !== 0;
+      items.push(
         { separator: true },
-        { label: 'Éditer les paroles', onClick: () => onNavigate('lyrics', { songId: item.song_id }) },
-        { label: 'Ouvrir la synchro', onClick: () => onNavigate('sync', { songId: item.song_id }) },
-      ],
-    });
-  }, [playlistId, onNavigate]);
+        {
+          label: isVisible ? 'Masquer du Jukebox' : 'Publier sur Jukebox',
+          onClick: async () => {
+            await api.patch(`/plugins/jukebox/songs/${item.song_id}/visible`, { visible: !isVisible });
+            loadItems();
+          },
+        }
+      );
+    }
+
+    setContextMenu({ x, y, items });
+  }, [playlistId, onNavigate, state.plugins]);
 
   const addToPlaylist = (targetPlaylistId, songId) => {
     api.post(`/playlists/${targetPlaylistId}/items`, { songId }).catch(() => {});
@@ -434,7 +447,11 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
       </td>
       <td>
         <div className="song-info">
-          <span className="song-title">{item.title}</span>
+          <span className="song-title" style={
+            state.plugins?.some(p => p.name === 'jukebox')
+              ? { borderBottom: `2px solid ${item.jukebox_visible !== 0 ? 'var(--success)' : '#ef4444'}` }
+              : undefined
+          }>{item.title}</span>
           {item.key_signature && <span className="badge badge-key">{item.key_signature}</span>}
           {item.bpm && <span className="badge badge-bpm">{item.bpm} BPM</span>}
         </div>
