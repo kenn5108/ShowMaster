@@ -17,14 +17,36 @@ const STATUS_COLORS = {
   closed: '#ef4444',
 };
 
+// What the public sees for the current session
+const PUBLIC_DESCRIPTION = {
+  draft: 'Non visible publiquement',
+  waiting: 'Visible publiquement — en attente d\u2019ouverture',
+  open: 'Ouverte aux demandes du public',
+  full: 'Visible publiquement — plus de demandes acceptées',
+  closed: 'Fermée',
+};
+
 function formatDate(d) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function formatTime(d) {
-  if (!d) return '—';
+  if (!d) return '';
   return new Date(d).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
+// Status badge component
+function StatusBadge({ status }) {
+  return (
+    <span style={{
+      fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
+      background: `${STATUS_COLORS[status] || 'var(--text-muted)'}22`,
+      color: STATUS_COLORS[status] || 'var(--text-muted)',
+    }}>
+      {STATUS_LABELS[status] || status}
+    </span>
+  );
 }
 
 export default function JukeboxView() {
@@ -71,18 +93,14 @@ export default function JukeboxView() {
     try {
       await api.put(`/plugins/jukebox/sessions/${id}/status`, { status: newStatus });
       loadSessions();
-    } catch (err) {
-      alert(`Erreur : ${err.message}`);
-    }
+    } catch (err) { alert(`Erreur : ${err.message}`); }
   };
 
   const setCurrent = async (id) => {
     try {
       await api.put(`/plugins/jukebox/sessions/${id}/current`, {});
       loadSessions();
-    } catch (err) {
-      alert(`Erreur : ${err.message}`);
-    }
+    } catch (err) { alert(`Erreur : ${err.message}`); }
   };
 
   const saveSession = async () => {
@@ -97,9 +115,7 @@ export default function JukeboxView() {
       setEditingSession(null);
       setSessionForm({ name: '', date_event: '', opens_at: '', closes_at: '' });
       loadSessions();
-    } catch (err) {
-      alert(`Erreur : ${err.message}`);
-    }
+    } catch (err) { alert(`Erreur : ${err.message}`); }
     setSessionSaving(false);
   };
 
@@ -122,26 +138,117 @@ export default function JukeboxView() {
     </div>
   );
 
-  const statusBadge = (s) => (
-    <span style={{
-      fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
-      background: `${STATUS_COLORS[s] || 'var(--text-muted)'}22`,
-      color: STATUS_COLORS[s] || 'var(--text-muted)',
-    }}>
-      {STATUS_LABELS[s] || s}
-    </span>
-  );
-
-  // Possible transitions per status
-  const transitions = {
-    draft: [{ label: 'Mettre en attente', to: 'waiting' }],
-    waiting: [{ label: 'Ouvrir', to: 'open' }],
-    open: [{ label: 'Passer en complète', to: 'full' }, { label: 'Fermer', to: 'closed' }],
-    full: [{ label: 'Rouvrir', to: 'open' }, { label: 'Fermer', to: 'closed' }],
-    closed: [],
+  // Transitions: label shown depends on context
+  const getTransitions = (s) => {
+    switch (s.status) {
+      case 'draft':
+        return [{ label: 'Publier', to: 'waiting' }];
+      case 'waiting':
+        return [{ label: 'Ouvrir les demandes', to: 'open' }];
+      case 'open':
+        return [
+          { label: 'Passer en complète', to: 'full' },
+          { label: 'Fermer', to: 'closed', secondary: true },
+        ];
+      case 'full':
+        return [
+          { label: 'Rouvrir', to: 'open' },
+          { label: 'Fermer', to: 'closed', secondary: true },
+        ];
+      default:
+        return [];
+    }
   };
 
   const currentSession = sessions?.find(s => s.is_current == 1);
+
+  // Group non-current sessions
+  const drafts = sessions?.filter(s => s.is_current != 1 && s.status === 'draft') || [];
+  const upcoming = sessions?.filter(s => s.is_current != 1 && s.status === 'waiting') || [];
+  const closed = sessions?.filter(s => s.is_current != 1 && s.status === 'closed') || [];
+  // open/full non-current would be unusual but show them
+  const otherActive = sessions?.filter(s => s.is_current != 1 && (s.status === 'open' || s.status === 'full')) || [];
+
+  // ── Session form component ──
+  const SessionForm = () => (
+    <div style={{ padding: '12px 14px', borderRadius: 6, background: 'var(--bg-secondary)', marginBottom: 12 }}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+        {editingSession ? 'Modifier la session' : 'Nouvelle session'}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <input placeholder="Nom de la session" value={sessionForm.name}
+          onChange={e => setSessionForm(f => ({ ...f, name: e.target.value }))} style={{ fontSize: 13 }} />
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', flex: 1, minWidth: 140 }}>
+            Date événement
+            <input type="date" value={sessionForm.date_event}
+              onChange={e => setSessionForm(f => ({ ...f, date_event: e.target.value }))}
+              style={{ width: '100%', fontSize: 13 }} />
+          </label>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', flex: 1, minWidth: 140 }}>
+            Ouverture des demandes
+            <input type="datetime-local" value={sessionForm.opens_at}
+              onChange={e => setSessionForm(f => ({ ...f, opens_at: e.target.value }))}
+              style={{ width: '100%', fontSize: 13 }} />
+          </label>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', flex: 1, minWidth: 140 }}>
+            Fermeture des demandes
+            <input type="datetime-local" value={sessionForm.closes_at}
+              onChange={e => setSessionForm(f => ({ ...f, closes_at: e.target.value }))}
+              style={{ width: '100%', fontSize: 13 }} />
+          </label>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-sm btn-primary" disabled={sessionSaving || !sessionForm.name} onClick={saveSession}>
+            {sessionSaving ? 'Enregistrement...' : (editingSession ? 'Mettre à jour' : 'Créer')}
+          </button>
+          <button className="btn btn-sm btn-secondary" onClick={() => { setShowNewSession(false); setEditingSession(null); }}>
+            Annuler
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── Session row component ──
+  const SessionRow = ({ s, showSetCurrent }) => (
+    <div style={{
+      padding: '8px 12px', borderRadius: 6,
+      background: s.is_current == 1 ? 'rgba(59,130,246,0.08)' : 'var(--bg-secondary)',
+      border: s.is_current == 1 ? '1px solid rgba(59,130,246,0.3)' : '1px solid transparent',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+        <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>
+          {s.name}
+          {s.is_current == 1 && <span style={{ fontSize: 10, color: '#3b82f6', fontWeight: 700, marginLeft: 6 }}>COURANTE</span>}
+        </span>
+        <StatusBadge status={s.status} />
+        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatDate(s.date_event)}</span>
+      </div>
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+        {showSetCurrent && s.status !== 'closed' && (
+          <button className="btn btn-sm btn-secondary" style={{ fontSize: 10, padding: '1px 8px' }}
+            onClick={() => setCurrent(s.id)}>
+            Définir courante
+          </button>
+        )}
+        {getTransitions(s).map(t => (
+          <button key={t.to}
+            className={`btn btn-sm ${t.secondary ? 'btn-secondary' : 'btn-primary'}`}
+            style={{ fontSize: 10, padding: '1px 8px' }}
+            onClick={() => changeStatus(s.id, t.to)}>
+            {t.label}
+          </button>
+        ))}
+        {s.status !== 'closed' && (
+          <button className="btn btn-sm btn-secondary" style={{ fontSize: 10, padding: '1px 8px' }}
+            onClick={() => startEdit(s)}>
+            Modifier
+          </button>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div>
@@ -195,10 +302,23 @@ export default function JukeboxView() {
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Aucune session courante définie</div>
         )}
         {currentSession && (
-          <div style={{ padding: '10px 14px', borderRadius: 6, background: 'var(--bg-secondary)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 14, fontWeight: 600 }}>{currentSession.name}</span>
-              {statusBadge(currentSession.status)}
+          <div style={{ padding: '12px 14px', borderRadius: 6, background: 'var(--bg-secondary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <span style={{ fontSize: 15, fontWeight: 600 }}>{currentSession.name}</span>
+              <StatusBadge status={currentSession.status} />
+            </div>
+            {/* Public visibility description */}
+            <div style={{
+              fontSize: 11, padding: '4px 8px', borderRadius: 4, marginBottom: 8,
+              background: currentSession.status === 'draft' ? 'rgba(255,255,255,0.03)' : 'rgba(59,130,246,0.06)',
+              color: currentSession.status === 'draft' ? 'var(--text-muted)' : '#60a5fa',
+            }}>
+              {PUBLIC_DESCRIPTION[currentSession.status] || ''}
+              {currentSession.status === 'waiting' && currentSession.opens_at && (
+                <span style={{ marginLeft: 6 }}>
+                  Ouverture prévue : {formatTime(currentSession.opens_at)}
+                </span>
+              )}
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
               {formatDate(currentSession.date_event)}
@@ -206,13 +326,11 @@ export default function JukeboxView() {
               {currentSession.closes_at && ` · Fermeture ${formatTime(currentSession.closes_at)}`}
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {(transitions[currentSession.status] || []).map(t => (
-                <button
-                  key={t.to}
-                  className={`btn btn-sm ${t.to === 'closed' ? 'btn-secondary' : 'btn-primary'}`}
+              {getTransitions(currentSession).map(t => (
+                <button key={t.to}
+                  className={`btn btn-sm ${t.secondary ? 'btn-secondary' : 'btn-primary'}`}
                   style={{ fontSize: 11 }}
-                  onClick={() => changeStatus(currentSession.id, t.to)}
-                >
+                  onClick={() => changeStatus(currentSession.id, t.to)}>
                   {t.label}
                 </button>
               ))}
@@ -224,7 +342,7 @@ export default function JukeboxView() {
         )}
       </section>
 
-      {/* ── Toutes les sessions ── */}
+      {/* ── Sessions ── */}
       <section style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
           <h3 style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0 }}>Sessions</h3>
@@ -240,94 +358,64 @@ export default function JukeboxView() {
           </button>
         </div>
 
-        {/* New / Edit form */}
-        {showNewSession && (
-          <div style={{ padding: '12px 14px', borderRadius: 6, background: 'var(--bg-secondary)', marginBottom: 12 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
-              {editingSession ? 'Modifier la session' : 'Nouvelle session'}
+        {showNewSession && <SessionForm />}
+
+        {/* Sessions à venir (waiting, non-courantes) — visibles publiquement */}
+        {upcoming.length > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600, marginBottom: 6 }}>
+              Sessions à venir (visibles publiquement)
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <input
-                placeholder="Nom de la session"
-                value={sessionForm.name}
-                onChange={e => setSessionForm(f => ({ ...f, name: e.target.value }))}
-                style={{ fontSize: 13 }}
-              />
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <label style={{ fontSize: 11, color: 'var(--text-muted)', flex: 1, minWidth: 140 }}>
-                  Date événement
-                  <input type="date" value={sessionForm.date_event}
-                    onChange={e => setSessionForm(f => ({ ...f, date_event: e.target.value }))}
-                    style={{ width: '100%', fontSize: 13 }} />
-                </label>
-                <label style={{ fontSize: 11, color: 'var(--text-muted)', flex: 1, minWidth: 140 }}>
-                  Ouverture
-                  <input type="datetime-local" value={sessionForm.opens_at}
-                    onChange={e => setSessionForm(f => ({ ...f, opens_at: e.target.value }))}
-                    style={{ width: '100%', fontSize: 13 }} />
-                </label>
-                <label style={{ fontSize: 11, color: 'var(--text-muted)', flex: 1, minWidth: 140 }}>
-                  Fermeture
-                  <input type="datetime-local" value={sessionForm.closes_at}
-                    onChange={e => setSessionForm(f => ({ ...f, closes_at: e.target.value }))}
-                    style={{ width: '100%', fontSize: 13 }} />
-                </label>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-sm btn-primary" disabled={sessionSaving || !sessionForm.name} onClick={saveSession}>
-                  {sessionSaving ? 'Enregistrement...' : (editingSession ? 'Mettre à jour' : 'Créer')}
-                </button>
-                <button className="btn btn-sm btn-secondary" onClick={() => { setShowNewSession(false); setEditingSession(null); }}>
-                  Annuler
-                </button>
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {upcoming.sort((a, b) => (a.date_event || '').localeCompare(b.date_event || '')).map(s => (
+                <SessionRow key={s.id} s={s} showSetCurrent />
+              ))}
             </div>
           </div>
         )}
 
-        {/* Sessions list */}
-        {sessions && sessions.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {sessions
-              .sort((a, b) => (b.date_event || '').localeCompare(a.date_event || ''))
-              .map(s => (
-                <div key={s.id} style={{
-                  padding: '8px 12px', borderRadius: 6,
-                  background: s.is_current == 1 ? 'rgba(59,130,246,0.08)' : 'var(--bg-secondary)',
-                  border: s.is_current == 1 ? '1px solid rgba(59,130,246,0.3)' : '1px solid transparent',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>
-                      {s.name}
-                      {s.is_current == 1 && <span style={{ fontSize: 10, color: '#3b82f6', fontWeight: 700, marginLeft: 6 }}>COURANTE</span>}
-                    </span>
-                    {statusBadge(s.status)}
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatDate(s.date_event)}</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {s.is_current != 1 && s.status !== 'closed' && (
-                      <button className="btn btn-sm btn-secondary" style={{ fontSize: 10, padding: '1px 8px' }}
-                        onClick={() => setCurrent(s.id)}>
-                        Définir courante
-                      </button>
-                    )}
-                    {(transitions[s.status] || []).map(t => (
-                      <button key={t.to} className="btn btn-sm btn-secondary" style={{ fontSize: 10, padding: '1px 8px' }}
-                        onClick={() => changeStatus(s.id, t.to)}>
-                        {t.label}
-                      </button>
-                    ))}
-                    {s.status !== 'closed' && (
-                      <button className="btn btn-sm btn-secondary" style={{ fontSize: 10, padding: '1px 8px' }}
-                        onClick={() => startEdit(s)}>
-                        Modifier
-                      </button>
-                    )}
-                  </div>
-                </div>
+        {/* Autres sessions actives (open/full non-courantes — cas rare) */}
+        {otherActive.length > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600, marginBottom: 6 }}>
+              Sessions actives
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {otherActive.map(s => (
+                <SessionRow key={s.id} s={s} showSetCurrent />
               ))}
+            </div>
           </div>
         )}
+
+        {/* Brouillons (draft) — privés */}
+        {drafts.length > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>
+              Brouillons (privés)
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {drafts.sort((a, b) => (b.date_event || '').localeCompare(a.date_event || '')).map(s => (
+                <SessionRow key={s.id} s={s} showSetCurrent />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Fermées */}
+        {closed.length > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600, marginBottom: 6, opacity: 0.7 }}>
+              Fermées
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, opacity: 0.6 }}>
+              {closed.sort((a, b) => (b.date_event || '').localeCompare(a.date_event || '')).map(s => (
+                <SessionRow key={s.id} s={s} />
+              ))}
+            </div>
+          </div>
+        )}
+
         {sessions && sessions.length === 0 && (
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Aucune session</div>
         )}
