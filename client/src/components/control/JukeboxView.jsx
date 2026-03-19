@@ -365,7 +365,7 @@ export default function JukeboxView() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {upcoming.sort((a, b) => (a.date_event || '').localeCompare(b.date_event || '')).map(s => (
-                {renderSessionRow(s, true)}
+                renderSessionRow(s, true)
               ))}
             </div>
           </div>
@@ -379,7 +379,7 @@ export default function JukeboxView() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {otherActive.map(s => (
-                {renderSessionRow(s, true)}
+                renderSessionRow(s, true)
               ))}
             </div>
           </div>
@@ -393,7 +393,7 @@ export default function JukeboxView() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {drafts.sort((a, b) => (b.date_event || '').localeCompare(a.date_event || '')).map(s => (
-                {renderSessionRow(s, true)}
+                renderSessionRow(s, true)
               ))}
             </div>
           </div>
@@ -407,7 +407,7 @@ export default function JukeboxView() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, opacity: 0.6 }}>
               {closed.sort((a, b) => (b.date_event || '').localeCompare(a.date_event || '')).map(s => (
-                {renderSessionRow(s, false)}
+                renderSessionRow(s, false)
               ))}
             </div>
           </div>
