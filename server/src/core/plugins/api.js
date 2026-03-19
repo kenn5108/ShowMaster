@@ -118,6 +118,15 @@ function createPluginAPI(pluginName) {
       logger.info('plugins', `  Route: ${fullPath}`);
     },
 
+    // ── Plugin metadata (update state.plugins entry) ──
+    setConnected(connected) {
+      const plugins = getState().plugins || [];
+      const updated = plugins.map(p =>
+        p.name === pluginName ? { ...p, connected: !!connected } : p
+      );
+      updateState({ plugins: updated });
+    },
+
     // ── Socket.IO (emit to all clients) ──
     broadcast(event, data) {
       if (_io) _io.emit(`plugin:${pluginName}:${event}`, data);

@@ -24,7 +24,7 @@ function useIsDesktop() {
 export default function PlaylistView({ playlistId, onNavigate }) {
   const { state } = useSocket();
   const isDesktop = useIsDesktop();
-  const jukeboxInstalled = state.plugins?.some(p => p.name === 'jukebox');
+  const jukeboxActive = state.plugins?.some(p => p.name === 'jukebox' && p.connected);
   const [playlist, setPlaylist] = useState(null);
   const [items, setItems] = useState([]);
   const [sortBy, setSortBy] = useState('position');
@@ -107,7 +107,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
       { label: 'Ouvrir la synchro', onClick: () => onNavigate('sync', { songId: item.song_id }) },
     ];
 
-    if (jukeboxInstalled) {
+    if (jukeboxActive) {
       const isVisible = item.jukebox_visible !== 0;
       items.push(
         { separator: true },
@@ -122,7 +122,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
     }
 
     setContextMenu({ x, y, items });
-  }, [playlistId, onNavigate, jukeboxInstalled]);
+  }, [playlistId, onNavigate, jukeboxActive]);
 
   const addToPlaylist = (targetPlaylistId, songId) => {
     api.post(`/playlists/${targetPlaylistId}/items`, { songId }).catch(() => {});
@@ -448,11 +448,12 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
       </td>
       <td>
         <div className="song-info">
-          <span className="song-title" style={
-            jukeboxInstalled
-              ? { borderBottom: `2px solid ${item.jukebox_visible !== 0 ? 'var(--success)' : '#ef4444'}` }
-              : undefined
-          }>{item.title}</span>
+          <span className="song-title">
+            {jukeboxActive
+              ? <span style={{ borderBottom: `2px solid ${item.jukebox_visible !== 0 ? 'var(--success)' : '#ef4444'}`, paddingBottom: 1 }}>{item.title}</span>
+              : item.title
+            }
+          </span>
           {item.key_signature && <span className="badge badge-key">{item.key_signature}</span>}
           {item.bpm && <span className="badge badge-bpm">{item.bpm} BPM</span>}
         </div>

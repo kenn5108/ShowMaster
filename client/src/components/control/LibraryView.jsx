@@ -24,7 +24,7 @@ function useIsDesktop() {
 export default function LibraryView({ onNavigate }) {
   const { state } = useSocket();
   const isDesktop = useIsDesktop();
-  const jukeboxInstalled = state.plugins?.some(p => p.name === 'jukebox');
+  const jukeboxActive = state.plugins?.some(p => p.name === 'jukebox' && p.connected);
   const [songs, setSongs] = useState([]);
   const [sortBy, setSortBy] = useState('title');
   const [sortDir, setSortDir] = useState('asc');
@@ -133,7 +133,7 @@ export default function LibraryView({ onNavigate }) {
     ];
 
     // Jukebox toggle (only if plugin installed)
-    if (jukeboxInstalled) {
+    if (jukeboxActive) {
       const isVisible = song.jukebox_visible !== 0;
       items.push(
         { separator: true },
@@ -383,7 +383,7 @@ export default function LibraryView({ onNavigate }) {
               selected={selectedSongs.has(song.id)}
               onToggleSelect={toggleSelect}
               showCheckbox={isDesktop}
-              jukeboxInstalled={jukeboxInstalled}
+              jukeboxActive={jukeboxActive}
             />
           ))}
         </tbody>
@@ -555,7 +555,7 @@ export default function LibraryView({ onNavigate }) {
   );
 }
 
-function SongRow({ song, onShortPress, onLongPress, selected, onToggleSelect, showCheckbox, jukeboxInstalled }) {
+function SongRow({ song, onShortPress, onLongPress, selected, onToggleSelect, showCheckbox, jukeboxActive }) {
   const pressHandlers = useLongPress(onShortPress, onLongPress);
   const missing = !song.rs_available;
 
@@ -577,11 +577,12 @@ function SongRow({ song, onShortPress, onLongPress, selected, onToggleSelect, sh
       )}
       <td>
         <div className="song-info">
-          <span className="song-title" style={
-            jukeboxInstalled
-              ? { borderBottom: `2px solid ${song.jukebox_visible !== 0 ? 'var(--success)' : '#ef4444'}` }
-              : undefined
-          }>{song.title}</span>
+          <span className="song-title">
+            {jukeboxActive
+              ? <span style={{ borderBottom: `2px solid ${song.jukebox_visible !== 0 ? 'var(--success)' : '#ef4444'}`, paddingBottom: 1 }}>{song.title}</span>
+              : song.title
+            }
+          </span>
           {missing && <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 600, flexShrink: 0 }}>MANQUANTE</span>}
           {song.key_signature && <span className="badge badge-key">{song.key_signature}</span>}
           {song.bpm && <span className="badge badge-bpm">{song.bpm} BPM</span>}
