@@ -577,12 +577,9 @@ function SongRow({ song, onShortPress, onLongPress, selected, onToggleSelect, sh
       )}
       <td>
         <div className="song-info">
-          <span className="song-title">
-            {jukeboxActive
-              ? <span style={{ borderBottom: `2px solid ${song.jukebox_visible !== 0 ? 'var(--success)' : '#ef4444'}`, paddingBottom: 1 }}>{song.title}</span>
-              : song.title
-            }
-          </span>
+          <span className="song-title" style={
+            jukeboxActive ? { borderBottom: `2px solid ${song.jukebox_visible !== 0 ? 'var(--success)' : '#ef4444'}`, paddingBottom: 1, display: 'inline' } : undefined
+          }>{song.title}</span>
           {missing && <span style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 600, flexShrink: 0 }}>MANQUANTE</span>}
           {song.key_signature && <span className="badge badge-key">{song.key_signature}</span>}
           {song.bpm && <span className="badge badge-bpm">{song.bpm} BPM</span>}

@@ -448,12 +448,9 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
       </td>
       <td>
         <div className="song-info">
-          <span className="song-title">
-            {jukeboxActive
-              ? <span style={{ borderBottom: `2px solid ${item.jukebox_visible !== 0 ? 'var(--success)' : '#ef4444'}`, paddingBottom: 1 }}>{item.title}</span>
-              : item.title
-            }
-          </span>
+          <span className="song-title" style={
+            jukeboxActive ? { borderBottom: `2px solid ${item.jukebox_visible !== 0 ? 'var(--success)' : '#ef4444'}`, paddingBottom: 1, display: 'inline' } : undefined
+          }>{item.title}</span>
           {item.key_signature && <span className="badge badge-key">{item.key_signature}</span>}
           {item.bpm && <span className="badge badge-bpm">{item.bpm} BPM</span>}
         </div>
