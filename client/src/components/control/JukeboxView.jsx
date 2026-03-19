@@ -169,50 +169,9 @@ export default function JukeboxView() {
   // open/full non-current would be unusual but show them
   const otherActive = sessions?.filter(s => s.is_current != 1 && (s.status === 'open' || s.status === 'full')) || [];
 
-  // ── Session form component ──
-  const SessionForm = () => (
-    <div style={{ padding: '12px 14px', borderRadius: 6, background: 'var(--bg-secondary)', marginBottom: 12 }}>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
-        {editingSession ? 'Modifier la session' : 'Nouvelle session'}
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <input placeholder="Nom de la session" value={sessionForm.name}
-          onChange={e => setSessionForm(f => ({ ...f, name: e.target.value }))} style={{ fontSize: 13 }} />
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', flex: 1, minWidth: 140 }}>
-            Date événement
-            <input type="date" value={sessionForm.date_event}
-              onChange={e => setSessionForm(f => ({ ...f, date_event: e.target.value }))}
-              style={{ width: '100%', fontSize: 13 }} />
-          </label>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', flex: 1, minWidth: 140 }}>
-            Ouverture des demandes
-            <input type="datetime-local" value={sessionForm.opens_at}
-              onChange={e => setSessionForm(f => ({ ...f, opens_at: e.target.value }))}
-              style={{ width: '100%', fontSize: 13 }} />
-          </label>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', flex: 1, minWidth: 140 }}>
-            Fermeture des demandes
-            <input type="datetime-local" value={sessionForm.closes_at}
-              onChange={e => setSessionForm(f => ({ ...f, closes_at: e.target.value }))}
-              style={{ width: '100%', fontSize: 13 }} />
-          </label>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-sm btn-primary" disabled={sessionSaving || !sessionForm.name} onClick={saveSession}>
-            {sessionSaving ? 'Enregistrement...' : (editingSession ? 'Mettre à jour' : 'Créer')}
-          </button>
-          <button className="btn btn-sm btn-secondary" onClick={() => { setShowNewSession(false); setEditingSession(null); }}>
-            Annuler
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ── Session row component ──
-  const SessionRow = ({ s, showSetCurrent }) => (
-    <div style={{
+  // Helper: render a session row (inline, not a component — avoids remount on re-render)
+  const renderSessionRow = (s, showSetCurrent) => (
+    <div key={s.id} style={{
       padding: '8px 12px', borderRadius: 6,
       background: s.is_current == 1 ? 'rgba(59,130,246,0.08)' : 'var(--bg-secondary)',
       border: s.is_current == 1 ? '1px solid rgba(59,130,246,0.3)' : '1px solid transparent',
@@ -358,7 +317,45 @@ export default function JukeboxView() {
           </button>
         </div>
 
-        {showNewSession && <SessionForm />}
+        {showNewSession && (
+          <div style={{ padding: '12px 14px', borderRadius: 6, background: 'var(--bg-secondary)', marginBottom: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+              {editingSession ? 'Modifier la session' : 'Nouvelle session'}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <input placeholder="Nom de la session" value={sessionForm.name}
+                onChange={e => setSessionForm(f => ({ ...f, name: e.target.value }))} style={{ fontSize: 13 }} />
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <label style={{ fontSize: 11, color: 'var(--text-muted)', flex: 1, minWidth: 140 }}>
+                  Date événement
+                  <input type="date" value={sessionForm.date_event}
+                    onChange={e => setSessionForm(f => ({ ...f, date_event: e.target.value }))}
+                    style={{ width: '100%', fontSize: 13 }} />
+                </label>
+                <label style={{ fontSize: 11, color: 'var(--text-muted)', flex: 1, minWidth: 140 }}>
+                  Ouverture des demandes
+                  <input type="datetime-local" value={sessionForm.opens_at}
+                    onChange={e => setSessionForm(f => ({ ...f, opens_at: e.target.value }))}
+                    style={{ width: '100%', fontSize: 13 }} />
+                </label>
+                <label style={{ fontSize: 11, color: 'var(--text-muted)', flex: 1, minWidth: 140 }}>
+                  Fermeture des demandes
+                  <input type="datetime-local" value={sessionForm.closes_at}
+                    onChange={e => setSessionForm(f => ({ ...f, closes_at: e.target.value }))}
+                    style={{ width: '100%', fontSize: 13 }} />
+                </label>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-sm btn-primary" disabled={sessionSaving || !sessionForm.name} onClick={saveSession}>
+                  {sessionSaving ? 'Enregistrement...' : (editingSession ? 'Mettre à jour' : 'Créer')}
+                </button>
+                <button className="btn btn-sm btn-secondary" onClick={() => { setShowNewSession(false); setEditingSession(null); }}>
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Sessions à venir (waiting, non-courantes) — visibles publiquement */}
         {upcoming.length > 0 && (
@@ -368,7 +365,7 @@ export default function JukeboxView() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {upcoming.sort((a, b) => (a.date_event || '').localeCompare(b.date_event || '')).map(s => (
-                <SessionRow key={s.id} s={s} showSetCurrent />
+                {renderSessionRow(s, true)}
               ))}
             </div>
           </div>
@@ -382,7 +379,7 @@ export default function JukeboxView() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {otherActive.map(s => (
-                <SessionRow key={s.id} s={s} showSetCurrent />
+                {renderSessionRow(s, true)}
               ))}
             </div>
           </div>
@@ -396,7 +393,7 @@ export default function JukeboxView() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {drafts.sort((a, b) => (b.date_event || '').localeCompare(a.date_event || '')).map(s => (
-                <SessionRow key={s.id} s={s} showSetCurrent />
+                {renderSessionRow(s, true)}
               ))}
             </div>
           </div>
@@ -410,7 +407,7 @@ export default function JukeboxView() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, opacity: 0.6 }}>
               {closed.sort((a, b) => (b.date_event || '').localeCompare(a.date_event || '')).map(s => (
-                <SessionRow key={s.id} s={s} />
+                {renderSessionRow(s, false)}
               ))}
             </div>
           </div>
