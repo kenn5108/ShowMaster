@@ -258,6 +258,14 @@ export default function Sidebar({ activeView, activePlaylistId, onNavigate, isOp
         >
           Réglages
         </div>
+        {state.plugins?.some(p => p.name === 'jukebox') && (
+          <div
+            className={`sidebar-item ${activeView === 'jukebox' ? 'active' : ''}`}
+            onClick={() => onNavigate('jukebox')}
+          >
+            Jukebox
+          </div>
+        )}
         <div
           className={`sidebar-item ${activeView === 'logs' ? 'active' : ''}`}
           onClick={() => onNavigate('logs')}

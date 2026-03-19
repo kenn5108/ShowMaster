@@ -11,6 +11,7 @@ import LyricsEditor from './LyricsEditor';
 import SyncEditor from './SyncEditor';
 import SettingsView from './SettingsView';
 import LogsView from './LogsView';
+import JukeboxView from './JukeboxView';
 import TransportBar from './TransportBar';
 import MobileTransportBar from './MobileTransportBar';
 import QueuePanel from './QueuePanel';
@@ -25,6 +26,7 @@ const VIEWS = {
   lyrics: LyricsEditor,
   sync: SyncEditor,
   settings: SettingsView,
+  jukebox: JukeboxView,
   logs: LogsView,
 };
 
