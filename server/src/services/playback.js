@@ -168,7 +168,7 @@ function onSongStart(compositionName, playerState) {
 
     // Plugin event
     const currentItem = getState().queue.find(q => q.is_current === 1) || null;
-    pluginEvents.emit('playback:song-start', { song, queueItem: currentItem });
+    pluginEvents.emit('playback:song-start', { song, queueItem: currentItem, playerState });
   }
 }
 
