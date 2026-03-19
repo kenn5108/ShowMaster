@@ -255,7 +255,6 @@ export default function SettingsView() {
       </section>
 
       {/* Jukebox management is in the dedicated Jukebox view (sidebar) */}
-      )}
 
       {/* Session */}
       <section style={{ marginBottom: 24 }}>

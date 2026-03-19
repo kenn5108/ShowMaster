@@ -24,6 +24,7 @@ function useIsDesktop() {
 export default function LibraryView({ onNavigate }) {
   const { state } = useSocket();
   const isDesktop = useIsDesktop();
+  const jukeboxInstalled = state.plugins?.some(p => p.name === 'jukebox');
   const [songs, setSongs] = useState([]);
   const [sortBy, setSortBy] = useState('title');
   const [sortDir, setSortDir] = useState('asc');
@@ -132,7 +133,7 @@ export default function LibraryView({ onNavigate }) {
     ];
 
     // Jukebox toggle (only if plugin installed)
-    if (state.plugins?.some(p => p.name === 'jukebox')) {
+    if (jukeboxInstalled) {
       const isVisible = song.jukebox_visible !== 0;
       items.push(
         { separator: true },
@@ -382,6 +383,7 @@ export default function LibraryView({ onNavigate }) {
               selected={selectedSongs.has(song.id)}
               onToggleSelect={toggleSelect}
               showCheckbox={isDesktop}
+              jukeboxInstalled={jukeboxInstalled}
             />
           ))}
         </tbody>
@@ -553,7 +555,7 @@ export default function LibraryView({ onNavigate }) {
   );
 }
 
-function SongRow({ song, onShortPress, onLongPress, selected, onToggleSelect, showCheckbox }) {
+function SongRow({ song, onShortPress, onLongPress, selected, onToggleSelect, showCheckbox, jukeboxInstalled }) {
   const pressHandlers = useLongPress(onShortPress, onLongPress);
   const missing = !song.rs_available;
 
@@ -576,7 +578,7 @@ function SongRow({ song, onShortPress, onLongPress, selected, onToggleSelect, sh
       <td>
         <div className="song-info">
           <span className="song-title" style={
-            state.plugins?.some(p => p.name === 'jukebox')
+            jukeboxInstalled
               ? { borderBottom: `2px solid ${song.jukebox_visible !== 0 ? 'var(--success)' : '#ef4444'}` }
               : undefined
           }>{song.title}</span>

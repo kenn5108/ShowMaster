@@ -24,6 +24,7 @@ function useIsDesktop() {
 export default function PlaylistView({ playlistId, onNavigate }) {
   const { state } = useSocket();
   const isDesktop = useIsDesktop();
+  const jukeboxInstalled = state.plugins?.some(p => p.name === 'jukebox');
   const [playlist, setPlaylist] = useState(null);
   const [items, setItems] = useState([]);
   const [sortBy, setSortBy] = useState('position');
@@ -106,7 +107,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
       { label: 'Ouvrir la synchro', onClick: () => onNavigate('sync', { songId: item.song_id }) },
     ];
 
-    if (state.plugins?.some(p => p.name === 'jukebox')) {
+    if (jukeboxInstalled) {
       const isVisible = item.jukebox_visible !== 0;
       items.push(
         { separator: true },
@@ -121,7 +122,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
     }
 
     setContextMenu({ x, y, items });
-  }, [playlistId, onNavigate, state.plugins]);
+  }, [playlistId, onNavigate, jukeboxInstalled]);
 
   const addToPlaylist = (targetPlaylistId, songId) => {
     api.post(`/playlists/${targetPlaylistId}/items`, { songId }).catch(() => {});
@@ -448,7 +449,7 @@ function PlaylistItemRow({ item, idx, canDrag, onDragStart, onDragOver, onDrop, 
       <td>
         <div className="song-info">
           <span className="song-title" style={
-            state.plugins?.some(p => p.name === 'jukebox')
+            jukeboxInstalled
               ? { borderBottom: `2px solid ${item.jukebox_visible !== 0 ? 'var(--success)' : '#ef4444'}` }
               : undefined
           }>{item.title}</span>
