@@ -162,11 +162,9 @@ export default function JukeboxView() {
 
   const currentSession = sessions?.find(s => s.is_current == 1);
 
-  // Group non-current sessions
+  // Group non-current sessions (closed sessions are purged server-side, not shown here)
   const drafts = sessions?.filter(s => s.is_current != 1 && s.status === 'draft') || [];
   const upcoming = sessions?.filter(s => s.is_current != 1 && s.status === 'waiting') || [];
-  const closed = sessions?.filter(s => s.is_current != 1 && s.status === 'closed') || [];
-  // open/full non-current would be unusual but show them
   const otherActive = sessions?.filter(s => s.is_current != 1 && (s.status === 'open' || s.status === 'full')) || [];
 
   // Helper: render a session row (inline, not a component — avoids remount on re-render)
@@ -399,22 +397,8 @@ export default function JukeboxView() {
           </div>
         )}
 
-        {/* Fermées */}
-        {closed.length > 0 && (
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600, marginBottom: 6, opacity: 0.7 }}>
-              Fermées
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, opacity: 0.6 }}>
-              {closed.sort((a, b) => (b.date_event || '').localeCompare(a.date_event || '')).map(s => (
-                renderSessionRow(s, false)
-              ))}
-            </div>
-          </div>
-        )}
-
-        {sessions && sessions.length === 0 && (
-          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Aucune session</div>
+        {sessions && drafts.length === 0 && upcoming.length === 0 && otherActive.length === 0 && !currentSession && (
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Aucune session active</div>
         )}
       </section>
 
