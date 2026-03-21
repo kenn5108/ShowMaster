@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../utils/api';
+import JukeboxBatches from './JukeboxBatches';
 
 const STATUS_LABELS = {
   draft: 'Brouillon',
@@ -401,6 +402,9 @@ export default function JukeboxView() {
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Aucune session active</div>
         )}
       </section>
+
+      {/* ── Lots de codes ── */}
+      <JukeboxBatches sessions={sessions} connected={status?.connected} />
 
       {/* ── Catalog Sync ── */}
       <section style={{ marginBottom: 24 }}>
