@@ -336,34 +336,45 @@ export default function JukeboxView() {
                 t.revoked += (typeof gs(b, 'revoked') === 'number' ? gs(b, 'revoked') : 0);
               });
               const total = t.active + t.used + t.expired + t.revoked;
-              const segments = [
-                { key: 'active', count: t.active, label: 'disponibles', color: 'var(--success)' },
-                { key: 'used', count: t.used, label: 'utilisés', color: '#3b82f6' },
-                { key: 'expired', count: t.expired, label: 'expirés', color: 'var(--text-muted)' },
-                { key: 'revoked', count: t.revoked, label: 'révoqués', color: '#ef4444' },
-              ].filter(s => s.count > 0);
+              if (total === 0) return null;
+              const consumed = t.used;
+              const remaining = t.active;
+              // Secondary info: expired/revoked shown only if > 0
+              const secondary = [
+                t.expired > 0 && { count: t.expired, label: 'expiré' + (t.expired > 1 ? 's' : ''), color: 'var(--text-muted)' },
+                t.revoked > 0 && { count: t.revoked, label: 'révoqué' + (t.revoked > 1 ? 's' : ''), color: '#ef4444' },
+              ].filter(Boolean);
+              // Progress bar: consumed (blue) + remaining (green) + expired (muted) + revoked (red)
+              const barSegments = [
+                { key: 'used', count: consumed, color: '#3b82f6' },
+                { key: 'active', count: remaining, color: 'var(--success)' },
+                t.expired > 0 && { key: 'expired', count: t.expired, color: 'var(--text-muted)' },
+                t.revoked > 0 && { key: 'revoked', count: t.revoked, color: '#ef4444' },
+              ].filter(Boolean);
               return (
                 <div style={{ marginBottom: 10, padding: '8px 10px', borderRadius: 4, background: 'rgba(255,255,255,0.02)' }}>
                   <div style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginBottom: 4 }}>
-                    <span style={{ color: 'var(--text-muted)' }}>{sessionBatches.length} lot{sessionBatches.length > 1 ? 's' : ''}</span>
-                    {segments.map((s, i) => (
-                      <React.Fragment key={s.key}>
+                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{total} codes attribués</span>
+                    <span style={{ color: 'var(--text-muted)' }}>·</span>
+                    <span style={{ color: '#3b82f6', fontWeight: 500 }}>{consumed} consommé{consumed > 1 ? 's' : ''}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>·</span>
+                    <span style={{ color: 'var(--success)', fontWeight: 500 }}>{remaining} restant{remaining > 1 ? 's' : ''}</span>
+                    {secondary.map(s => (
+                      <React.Fragment key={s.label}>
                         <span style={{ color: 'var(--text-muted)' }}>·</span>
-                        <span style={{ color: s.color, fontWeight: 500 }}>{s.count} {s.label}</span>
+                        <span style={{ color: s.color, fontSize: 11 }}>{s.count} {s.label}</span>
                       </React.Fragment>
                     ))}
                   </div>
-                  {total > 0 && (
-                    <div style={{ display: 'flex', borderRadius: 4, overflow: 'hidden', height: 6 }}>
-                      {segments.map(s => (
-                        <div key={s.key} style={{
-                          width: `${(s.count / total * 100)}%`,
-                          background: s.color,
-                          minWidth: s.count > 0 ? 2 : 0,
-                        }} />
-                      ))}
-                    </div>
-                  )}
+                  <div style={{ display: 'flex', borderRadius: 4, overflow: 'hidden', height: 6 }}>
+                    {barSegments.map(s => (
+                      <div key={s.key} style={{
+                        width: `${(s.count / total * 100)}%`,
+                        background: s.color,
+                        minWidth: s.count > 0 ? 2 : 0,
+                      }} />
+                    ))}
+                  </div>
                 </div>
               );
             })()}
