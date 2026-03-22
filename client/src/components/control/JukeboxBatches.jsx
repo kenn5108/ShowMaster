@@ -15,6 +15,8 @@ const CODE_STATUS_COLORS = {
   revoked: '#ef4444',
 };
 
+const PAGE_SIZE = 20;
+
 /**
  * JukeboxBatches — Génération, export, liste détaillée des lots
  *
@@ -27,15 +29,21 @@ const CODE_STATUS_COLORS = {
  *   loadBatches — function to reload batches (called after generate/activate/deactivate)
  */
 export default function JukeboxBatches({ sessions, connected, batches, loadBatches }) {
-  const [batchesError, setBatchesError] = useState(null);
+  // ── List state ──
   const [expandedBatch, setExpandedBatch] = useState(null);
   const [batchDetail, setBatchDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
+  const [page, setPage] = useState(0);
 
   // ── Bulk generate state ──
   const [bulkForm, setBulkForm] = useState({ label: '', count: '', size: '' });
   const [bulkGenerating, setBulkGenerating] = useState(false);
   const [bulkResult, setBulkResult] = useState(null);
+
+  // ── Export state ──
+  const [exportFrom, setExportFrom] = useState('');
+  const [exportTo, setExportTo] = useState('');
 
   // ── Per-batch activate in detail view ──
   const [activating, setActivating] = useState(false);
@@ -44,6 +52,23 @@ export default function JukeboxBatches({ sessions, connected, batches, loadBatch
   const currentSession = (sessions || []).find(s => s.is_current == 1);
   const canActivate = !!currentSession && currentSession.status !== 'full' && currentSession.status !== 'closed';
   const isSessionOpen = currentSession?.status === 'open';
+
+  // ── Derived: last generation batch numbers (from bulkResult) ──
+  const lastGenNumbers = (() => {
+    if (!bulkResult?.ok || !bulkResult?.data) return null;
+    const d = bulkResult.data;
+    if (d.batches && Array.isArray(d.batches) && d.batches.length > 0) {
+      return d.batches.map(b => b.batch_number).sort((a, b) => a - b);
+    }
+    return null;
+  })();
+
+  // ── Sorted batches for list ──
+  const sortedBatches = batches
+    ? [...batches].sort((a, b) => (b.batch_number || 0) - (a.batch_number || 0))
+    : [];
+  const totalPages = Math.max(1, Math.ceil(sortedBatches.length / PAGE_SIZE));
+  const pagedBatches = sortedBatches.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   // ── Expand / load detail ──
   const toggleExpand = async (batchNumber) => {
@@ -86,6 +111,26 @@ export default function JukeboxBatches({ sessions, connected, batches, loadBatch
     setBulkGenerating(false);
   };
 
+  // ── Export CSV ──
+  const handleExportLastGen = () => {
+    if (!lastGenNumbers || lastGenNumbers.length === 0) return;
+    const params = `batch_numbers=${lastGenNumbers.join(',')}`;
+    window.open(`/api/plugins/jukebox/batches/export?${params}`, '_blank');
+  };
+
+  const handleExportRange = () => {
+    const f = parseInt(exportFrom, 10);
+    const t = parseInt(exportTo, 10);
+    if (isNaN(f) || isNaN(t) || f < 1 || t < f) return;
+    window.open(`/api/plugins/jukebox/batches/export?from=${f}&to=${t}`, '_blank');
+  };
+
+  const exportRangeValid = (() => {
+    const f = parseInt(exportFrom, 10);
+    const t = parseInt(exportTo, 10);
+    return !isNaN(f) && !isNaN(t) && f >= 1 && t >= f;
+  })();
+
   // ── Per-batch activate (detail view, on current session) ──
   const handleActivateSingle = async (batchNumber) => {
     if (!currentSession) return;
@@ -123,11 +168,6 @@ export default function JukeboxBatches({ sessions, connected, batches, loadBatch
     } catch (err) {
       alert(`Erreur : ${err.message}`);
     }
-  };
-
-  // ── Export CSV ──
-  const handleExport = () => {
-    window.open('/api/plugins/jukebox/batches/export', '_blank');
   };
 
   // ── Helpers ──
@@ -239,206 +279,253 @@ export default function JukeboxBatches({ sessions, connected, batches, loadBatch
           </button>
         </div>
         {bulkResult && (
-          <div style={{ fontSize: 12, marginTop: 6, color: bulkResult.ok ? 'var(--success)' : '#ef4444' }}>
-            {bulkResult.ok ? `✓ ${formatBulkResult(bulkResult)}` : bulkResult.error}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, color: bulkResult.ok ? 'var(--success)' : '#ef4444' }}>
+              {bulkResult.ok ? `✓ ${formatBulkResult(bulkResult)}` : bulkResult.error}
+            </span>
+            {bulkResult.ok && lastGenNumbers && lastGenNumbers.length > 0 && (
+              <button className="btn btn-sm btn-secondary" style={{ fontSize: 11 }}
+                onClick={handleExportLastGen}>
+                Exporter cette génération (CSV)
+              </button>
+            )}
           </div>
         )}
       </div>
 
       {/* ══════════════════════════════════════════════════
-          PANNEAU 2 — Export CSV
+          PANNEAU 2 — Export CSV par plage
           ══════════════════════════════════════════════════ */}
-      <div style={{ padding: '10px 14px', borderRadius: 6, background: 'var(--bg-secondary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ fontSize: 12, fontWeight: 600 }}>Export CSV</span>
-        <button className="btn btn-sm btn-secondary" style={{ fontSize: 11 }}
-          onClick={handleExport}>
-          Exporter tous les lots (CSV)
-        </button>
+      <div style={{ padding: '12px 14px', borderRadius: 6, background: 'var(--bg-secondary)', marginBottom: 10 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Export CSV</div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Lots n°</span>
+          <input type="number" min="1" placeholder="De" value={exportFrom}
+            onChange={e => setExportFrom(e.target.value)}
+            style={{ fontSize: 13, width: 70 }} />
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>à</span>
+          <input type="number" min="1" placeholder="À" value={exportTo}
+            onChange={e => setExportTo(e.target.value)}
+            style={{ fontSize: 13, width: 70 }} />
+          <button className="btn btn-sm btn-secondary" style={{ fontSize: 11 }}
+            disabled={!exportRangeValid}
+            onClick={handleExportRange}>
+            Exporter (CSV)
+          </button>
+        </div>
       </div>
 
       {/* ══════════════════════════════════════════════════
-          SECTION 3 — Liste détaillée des lots
+          SECTION 3 — Liste détaillée des lots (repliable)
           ══════════════════════════════════════════════════ */}
-      {batchesError && (
-        <div style={{ fontSize: 12, color: '#ef4444', marginBottom: 8 }}>{batchesError}</div>
-      )}
+      {batches && batches.length > 0 && (
+        <div>
+          {/* Collapsible header */}
+          <div
+            onClick={() => { setListOpen(o => !o); setPage(0); setExpandedBatch(null); setBatchDetail(null); }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '8px 12px', borderRadius: 6,
+              background: 'var(--bg-secondary)',
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'monospace', width: 14 }}>
+              {listOpen ? '▾' : '▸'}
+            </span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>
+              Tous les lots ({batches.length})
+            </span>
+          </div>
 
-      {batches === null && !batchesError && (
-        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Chargement...</div>
+          {listOpen && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+              {/* Header row */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '60px 1fr 60px 130px 70px 60px 60px 60px',
+                gap: 4,
+                padding: '4px 12px',
+                fontSize: 10,
+                fontWeight: 700,
+                color: 'var(--text-muted)',
+                textTransform: 'uppercase',
+              }}>
+                <span>N°</span>
+                <span>Label</span>
+                <span>Taille</span>
+                <span>Session</span>
+                <span style={{ color: CODE_STATUS_COLORS.active }}>Dispo.</span>
+                <span style={{ color: CODE_STATUS_COLORS.used }}>Util.</span>
+                <span style={{ color: CODE_STATUS_COLORS.expired }}>Exp.</span>
+                <span style={{ color: CODE_STATUS_COLORS.revoked }}>Rév.</span>
+              </div>
+
+              {/* Data rows — current page only */}
+              {pagedBatches.map(batch => (
+                <React.Fragment key={batch.batch_number}>
+                  <div
+                    onClick={() => toggleExpand(batch.batch_number)}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '60px 1fr 60px 130px 70px 60px 60px 60px',
+                      gap: 4,
+                      padding: '8px 12px',
+                      borderRadius: 6,
+                      background: expandedBatch === batch.batch_number ? 'rgba(59,130,246,0.08)' : 'var(--bg-secondary)',
+                      border: expandedBatch === batch.batch_number ? '1px solid rgba(59,130,246,0.3)' : '1px solid transparent',
+                      cursor: 'pointer',
+                      fontSize: 12,
+                      alignItems: 'center',
+                      transition: 'background 0.15s',
+                    }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>
+                      #{String(batch.batch_number).padStart(3, '0')}
+                    </span>
+                    <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {batch.label || '—'}
+                    </span>
+                    <span>{batch.size || getStat(batch, 'total') || '—'}</span>
+                    <span>
+                      {batch.session_id ? (
+                        <span style={{
+                          fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4,
+                          background: 'rgba(59,130,246,0.1)', color: '#60a5fa',
+                        }}>
+                          {sessionName(batch.session_id)}
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>—</span>
+                      )}
+                    </span>
+                    <span style={{ color: CODE_STATUS_COLORS.active }}>{getStat(batch, 'active')}</span>
+                    <span style={{ color: CODE_STATUS_COLORS.used }}>{getStat(batch, 'used')}</span>
+                    <span style={{ color: CODE_STATUS_COLORS.expired }}>{getStat(batch, 'expired')}</span>
+                    <span style={{ color: CODE_STATUS_COLORS.revoked }}>{getStat(batch, 'revoked')}</span>
+                  </div>
+
+                  {/* ── Expanded detail ── */}
+                  {expandedBatch === batch.batch_number && (
+                    <div style={{
+                      padding: '12px 14px',
+                      borderRadius: '0 0 6px 6px',
+                      background: 'var(--bg-secondary)',
+                      borderLeft: '3px solid rgba(59,130,246,0.4)',
+                      marginTop: -2,
+                    }}>
+                      {detailLoading && (
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Chargement du détail...</div>
+                      )}
+                      {batchDetail?._error && (
+                        <div style={{ fontSize: 12, color: '#ef4444' }}>{batchDetail._error}</div>
+                      )}
+                      {batchDetail && !batchDetail._error && !detailLoading && (
+                        <>
+                          {renderProgressBar(batchDetail)}
+
+                          <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                            {!batch.session_id && canActivate && (
+                              isSessionOpen ? (
+                                <button className="btn btn-sm" style={{ fontSize: 11, background: '#f59e0b', color: '#fff', border: 'none' }}
+                                  disabled={activating}
+                                  onClick={(e) => { e.stopPropagation(); handleActivateSingle(batch.batch_number); }}>
+                                  {activating ? '...' : `Activer sur ${currentSession.name} (en cours)`}
+                                </button>
+                              ) : (
+                                <button className="btn btn-sm btn-primary" style={{ fontSize: 11 }}
+                                  disabled={activating}
+                                  onClick={(e) => { e.stopPropagation(); handleActivateSingle(batch.batch_number); }}>
+                                  {activating ? '...' : `Activer sur ${currentSession.name}`}
+                                </button>
+                              )
+                            )}
+
+                            {!batch.session_id && !canActivate && (
+                              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                Aucune session courante pour activer ce lot
+                              </span>
+                            )}
+
+                            {batch.session_id && (
+                              <button className="btn btn-sm btn-secondary" style={{ fontSize: 11, color: '#ef4444' }}
+                                onClick={(e) => { e.stopPropagation(); handleDeactivate(batch.batch_number); }}>
+                                Désactiver
+                              </button>
+                            )}
+                          </div>
+
+                          {batchDetail.codes && batchDetail.codes.length > 0 && (
+                            <div style={{ maxHeight: 240, overflowY: 'auto', borderRadius: 4, border: '1px solid rgba(255,255,255,0.06)' }}>
+                              <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
+                                <thead>
+                                  <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
+                                    <th style={{ textAlign: 'left', padding: '4px 8px', fontWeight: 600, color: 'var(--text-muted)' }}>Code</th>
+                                    <th style={{ textAlign: 'left', padding: '4px 8px', fontWeight: 600, color: 'var(--text-muted)' }}>Statut</th>
+                                    <th style={{ textAlign: 'left', padding: '4px 8px', fontWeight: 600, color: 'var(--text-muted)' }}>Utilisé le</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {batchDetail.codes.map((code, idx) => (
+                                    <tr key={code.code || idx} style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                                      <td style={{ padding: '3px 8px', fontFamily: 'monospace', fontSize: 11 }}>
+                                        {code.code}
+                                      </td>
+                                      <td style={{ padding: '3px 8px' }}>
+                                        <span style={{ color: CODE_STATUS_COLORS[code.status] || 'var(--text-muted)' }}>
+                                          {CODE_STATUS_LABELS[code.status] || code.status}
+                                        </span>
+                                      </td>
+                                      <td style={{ padding: '3px 8px', color: 'var(--text-muted)' }}>
+                                        {code.used_at ? new Date(code.used_at).toLocaleString('fr-FR', {
+                                          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+                                        }) : '—'}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+
+                          {(!batchDetail.codes || batchDetail.codes.length === 0) && (
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Aucun code dans ce lot</div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </React.Fragment>
+              ))}
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '8px 0' }}>
+                  <button className="btn btn-sm btn-secondary" style={{ fontSize: 11 }}
+                    disabled={page === 0}
+                    onClick={() => { setPage(p => p - 1); setExpandedBatch(null); setBatchDetail(null); }}>
+                    ← Précédent
+                  </button>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    Page {page + 1} / {totalPages}
+                  </span>
+                  <button className="btn btn-sm btn-secondary" style={{ fontSize: 11 }}
+                    disabled={page >= totalPages - 1}
+                    onClick={() => { setPage(p => p + 1); setExpandedBatch(null); setBatchDetail(null); }}>
+                    Suivant →
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {batches && batches.length === 0 && (
         <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Aucun lot créé</div>
       )}
 
-      {batches && batches.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginTop: 4, marginBottom: 4 }}>
-            Tous les lots ({batches.length})
-          </div>
-
-          {/* Header row */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '60px 1fr 60px 130px 70px 60px 60px 60px',
-            gap: 4,
-            padding: '4px 12px',
-            fontSize: 10,
-            fontWeight: 700,
-            color: 'var(--text-muted)',
-            textTransform: 'uppercase',
-          }}>
-            <span>N°</span>
-            <span>Label</span>
-            <span>Taille</span>
-            <span>Session</span>
-            <span style={{ color: CODE_STATUS_COLORS.active }}>Dispo.</span>
-            <span style={{ color: CODE_STATUS_COLORS.used }}>Util.</span>
-            <span style={{ color: CODE_STATUS_COLORS.expired }}>Exp.</span>
-            <span style={{ color: CODE_STATUS_COLORS.revoked }}>Rév.</span>
-          </div>
-
-          {/* Data rows */}
-          {[...batches].sort((a, b) => (b.batch_number || 0) - (a.batch_number || 0)).map(batch => (
-            <React.Fragment key={batch.batch_number}>
-              <div
-                onClick={() => toggleExpand(batch.batch_number)}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '60px 1fr 60px 130px 70px 60px 60px 60px',
-                  gap: 4,
-                  padding: '8px 12px',
-                  borderRadius: 6,
-                  background: expandedBatch === batch.batch_number ? 'rgba(59,130,246,0.08)' : 'var(--bg-secondary)',
-                  border: expandedBatch === batch.batch_number ? '1px solid rgba(59,130,246,0.3)' : '1px solid transparent',
-                  cursor: 'pointer',
-                  fontSize: 12,
-                  alignItems: 'center',
-                  transition: 'background 0.15s',
-                }}>
-                <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>
-                  #{String(batch.batch_number).padStart(3, '0')}
-                </span>
-                <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {batch.label || '—'}
-                </span>
-                <span>{batch.size || getStat(batch, 'total') || '—'}</span>
-                <span>
-                  {batch.session_id ? (
-                    <span style={{
-                      fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4,
-                      background: 'rgba(59,130,246,0.1)', color: '#60a5fa',
-                    }}>
-                      {sessionName(batch.session_id)}
-                    </span>
-                  ) : (
-                    <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>—</span>
-                  )}
-                </span>
-                <span style={{ color: CODE_STATUS_COLORS.active }}>{getStat(batch, 'active')}</span>
-                <span style={{ color: CODE_STATUS_COLORS.used }}>{getStat(batch, 'used')}</span>
-                <span style={{ color: CODE_STATUS_COLORS.expired }}>{getStat(batch, 'expired')}</span>
-                <span style={{ color: CODE_STATUS_COLORS.revoked }}>{getStat(batch, 'revoked')}</span>
-              </div>
-
-              {/* ── Expanded detail ── */}
-              {expandedBatch === batch.batch_number && (
-                <div style={{
-                  padding: '12px 14px',
-                  borderRadius: '0 0 6px 6px',
-                  background: 'var(--bg-secondary)',
-                  borderLeft: '3px solid rgba(59,130,246,0.4)',
-                  marginTop: -2,
-                }}>
-                  {detailLoading && (
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Chargement du détail...</div>
-                  )}
-                  {batchDetail?._error && (
-                    <div style={{ fontSize: 12, color: '#ef4444' }}>{batchDetail._error}</div>
-                  )}
-                  {batchDetail && !batchDetail._error && !detailLoading && (
-                    <>
-                      {/* Progress bar */}
-                      {renderProgressBar(batchDetail)}
-
-                      {/* Actions */}
-                      <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                        {/* Activate single — only if no session assigned and current session exists */}
-                        {!batch.session_id && canActivate && (
-                          isSessionOpen ? (
-                            <button className="btn btn-sm" style={{ fontSize: 11, background: '#f59e0b', color: '#fff', border: 'none' }}
-                              disabled={activating}
-                              onClick={(e) => { e.stopPropagation(); handleActivateSingle(batch.batch_number); }}>
-                              {activating ? '...' : `Activer sur ${currentSession.name} (en cours)`}
-                            </button>
-                          ) : (
-                            <button className="btn btn-sm btn-primary" style={{ fontSize: 11 }}
-                              disabled={activating}
-                              onClick={(e) => { e.stopPropagation(); handleActivateSingle(batch.batch_number); }}>
-                              {activating ? '...' : `Activer sur ${currentSession.name}`}
-                            </button>
-                          )
-                        )}
-
-                        {!batch.session_id && !canActivate && (
-                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                            Aucune session courante pour activer ce lot
-                          </span>
-                        )}
-
-                        {/* Deactivate — shown when batch has a session */}
-                        {batch.session_id && (
-                          <button className="btn btn-sm btn-secondary" style={{ fontSize: 11, color: '#ef4444' }}
-                            onClick={(e) => { e.stopPropagation(); handleDeactivate(batch.batch_number); }}>
-                            Désactiver
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Code list */}
-                      {batchDetail.codes && batchDetail.codes.length > 0 && (
-                        <div style={{ maxHeight: 240, overflowY: 'auto', borderRadius: 4, border: '1px solid rgba(255,255,255,0.06)' }}>
-                          <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
-                            <thead>
-                              <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
-                                <th style={{ textAlign: 'left', padding: '4px 8px', fontWeight: 600, color: 'var(--text-muted)' }}>Code</th>
-                                <th style={{ textAlign: 'left', padding: '4px 8px', fontWeight: 600, color: 'var(--text-muted)' }}>Statut</th>
-                                <th style={{ textAlign: 'left', padding: '4px 8px', fontWeight: 600, color: 'var(--text-muted)' }}>Utilisé le</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {batchDetail.codes.map((code, idx) => (
-                                <tr key={code.code || idx} style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                                  <td style={{ padding: '3px 8px', fontFamily: 'monospace', fontSize: 11 }}>
-                                    {code.code}
-                                  </td>
-                                  <td style={{ padding: '3px 8px' }}>
-                                    <span style={{ color: CODE_STATUS_COLORS[code.status] || 'var(--text-muted)' }}>
-                                      {CODE_STATUS_LABELS[code.status] || code.status}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '3px 8px', color: 'var(--text-muted)' }}>
-                                    {code.used_at ? new Date(code.used_at).toLocaleString('fr-FR', {
-                                      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-                                    }) : '—'}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-
-                      {(!batchDetail.codes || batchDetail.codes.length === 0) && (
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Aucun code dans ce lot</div>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-            </React.Fragment>
-          ))}
-        </div>
+      {batches === null && (
+        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Chargement...</div>
       )}
     </section>
   );
