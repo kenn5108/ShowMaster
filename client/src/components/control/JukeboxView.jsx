@@ -65,6 +65,17 @@ export default function JukeboxView() {
   const [sessionForm, setSessionForm] = useState({ name: '', date_event: '', opens_at: '', closes_at: '' });
   const [sessionSaving, setSessionSaving] = useState(false);
 
+  // Batches (loaded here so activation rapide + badges can use them)
+  const [batches, setBatches] = useState(null);
+
+  // Quick activate
+  const [activateMode, setActivateMode] = useState('numbers');
+  const [activateNumbers, setActivateNumbers] = useState('');
+  const [activateFrom, setActivateFrom] = useState('');
+  const [activateTo, setActivateTo] = useState('');
+  const [quickActivating, setQuickActivating] = useState(false);
+  const [quickActivateResult, setQuickActivateResult] = useState(null);
+
   // ── Fetch status periodically ──
   useEffect(() => {
     const fetchStatus = () => {
@@ -88,6 +99,30 @@ export default function JukeboxView() {
       .catch(err => setSessionsError(err.message));
   };
   useEffect(() => { loadSessions(); }, []);
+
+  // ── Fetch batches ──
+  const loadBatches = () => {
+    api.get('/plugins/jukebox/batches')
+      .then(data => setBatches(data.batches || data))
+      .catch(() => {});
+  };
+  useEffect(() => { loadBatches(); }, []);
+
+  // ── Quick activate helpers ──
+  const parseNumbers = (input) => {
+    return input.split(/[\s,;]+/)
+      .map(s => parseInt(s.trim(), 10))
+      .filter(n => !isNaN(n) && n > 0);
+  };
+
+  const expandRange = (from, to) => {
+    const f = parseInt(from, 10);
+    const t = parseInt(to, 10);
+    if (isNaN(f) || isNaN(t) || f < 1 || t < f) return [];
+    const nums = [];
+    for (let i = f; i <= t; i++) nums.push(i);
+    return nums;
+  };
 
   // ── Session actions ──
   const changeStatus = async (id, newStatus) => {
@@ -300,6 +335,145 @@ export default function JukeboxView() {
         )}
       </section>
 
+      {/* ── Activation rapide + Lots activés ── */}
+      {(() => {
+        const canActivate = !!currentSession && currentSession.status !== 'full' && currentSession.status !== 'closed';
+        const isSessionOpen = currentSession?.status === 'open';
+        const activatedBatches = (batches || []).filter(b => b.session_id && currentSession && b.session_id == currentSession.id)
+          .sort((a, b) => (a.batch_number || 0) - (b.batch_number || 0));
+        const quickActivateValid = activateMode === 'numbers'
+          ? parseNumbers(activateNumbers).length > 0
+          : expandRange(activateFrom, activateTo).length > 0;
+
+        const handleQuickActivate = async () => {
+          const nums = activateMode === 'numbers'
+            ? parseNumbers(activateNumbers)
+            : expandRange(activateFrom, activateTo);
+          if (nums.length === 0) return;
+          setQuickActivating(true);
+          setQuickActivateResult(null);
+          try {
+            await api.post('/plugins/jukebox/batches/activate', {
+              batch_numbers: nums,
+              session_id: currentSession.id,
+            });
+            setQuickActivateResult({ ok: true, count: nums.length });
+            setActivateNumbers('');
+            setActivateFrom('');
+            setActivateTo('');
+            loadBatches();
+          } catch (err) {
+            setQuickActivateResult({ ok: false, error: err.message });
+          }
+          setQuickActivating(false);
+        };
+
+        return (
+          <section style={{ marginBottom: 24 }}>
+            <h3 style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 12 }}>Activation rapide</h3>
+            <div style={{
+              padding: '12px 14px', borderRadius: 6,
+              background: 'var(--bg-secondary)',
+              opacity: canActivate ? 1 : 0.6,
+            }}>
+              {/* Session target */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                {currentSession ? (
+                  <span style={{
+                    fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4,
+                    background: isSessionOpen ? 'rgba(245,158,11,0.15)' : 'rgba(59,130,246,0.1)',
+                    color: isSessionOpen ? '#f59e0b' : '#60a5fa',
+                  }}>
+                    {currentSession.name} ({isSessionOpen ? 'en cours' : STATUS_LABELS[currentSession.status] || currentSession.status})
+                  </span>
+                ) : (
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Aucune session courante</span>
+                )}
+              </div>
+
+              {/* Activated batches badges */}
+              {activatedBatches.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Lots activés :</span>
+                  {activatedBatches.map(b => (
+                    <span key={b.batch_number} style={{
+                      fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4,
+                      background: 'rgba(34,197,94,0.12)', color: 'var(--success)',
+                      fontFamily: 'monospace',
+                    }}>
+                      #{String(b.batch_number).padStart(3, '0')}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {!canActivate ? (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  {!currentSession
+                    ? 'Définissez une session courante pour activer des lots.'
+                    : `La session courante ne peut pas recevoir de lots (statut : ${STATUS_LABELS[currentSession.status] || currentSession.status}).`}
+                </div>
+              ) : (
+                <>
+                  {/* Mode toggle */}
+                  <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+                    <button className={`btn btn-sm ${activateMode === 'numbers' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: 10, padding: '2px 8px' }}
+                      onClick={() => setActivateMode('numbers')}>
+                      Par numéros
+                    </button>
+                    <button className={`btn btn-sm ${activateMode === 'range' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: 10, padding: '2px 8px' }}
+                      onClick={() => setActivateMode('range')}>
+                      Par plage
+                    </button>
+                  </div>
+
+                  {activateMode === 'numbers' ? (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <input placeholder="Ex: 12, 15, 18" value={activateNumbers}
+                        onChange={e => { setActivateNumbers(e.target.value); setQuickActivateResult(null); }}
+                        style={{ fontSize: 13, flex: 1 }} />
+                      <button className={`btn btn-sm ${isSessionOpen ? '' : 'btn-primary'}`}
+                        style={isSessionOpen ? { fontSize: 11, background: '#f59e0b', color: '#fff', border: 'none', whiteSpace: 'nowrap' } : { fontSize: 11, whiteSpace: 'nowrap' }}
+                        disabled={quickActivating || !quickActivateValid}
+                        onClick={handleQuickActivate}>
+                        {quickActivating ? '...' : (isSessionOpen ? 'Activer sur session en cours' : 'Activer')}
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>De</span>
+                      <input type="number" min="1" value={activateFrom}
+                        onChange={e => { setActivateFrom(e.target.value); setQuickActivateResult(null); }}
+                        style={{ fontSize: 13, width: 70 }} />
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>à</span>
+                      <input type="number" min="1" value={activateTo}
+                        onChange={e => { setActivateTo(e.target.value); setQuickActivateResult(null); }}
+                        style={{ fontSize: 13, width: 70 }} />
+                      <button className={`btn btn-sm ${isSessionOpen ? '' : 'btn-primary'}`}
+                        style={isSessionOpen ? { fontSize: 11, background: '#f59e0b', color: '#fff', border: 'none', whiteSpace: 'nowrap' } : { fontSize: 11, whiteSpace: 'nowrap' }}
+                        disabled={quickActivating || !quickActivateValid}
+                        onClick={handleQuickActivate}>
+                        {quickActivating ? '...' : (isSessionOpen ? 'Activer sur session en cours' : 'Activer')}
+                      </button>
+                    </div>
+                  )}
+
+                  {quickActivateResult && (
+                    <div style={{ fontSize: 12, marginTop: 6, color: quickActivateResult.ok ? 'var(--success)' : '#ef4444' }}>
+                      {quickActivateResult.ok
+                        ? `✓ ${quickActivateResult.count} lot${quickActivateResult.count > 1 ? 's' : ''} activé${quickActivateResult.count > 1 ? 's' : ''} sur ${currentSession.name}`
+                        : quickActivateResult.error}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
+        );
+      })()}
+
       {/* ── Sessions ── */}
       <section style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
@@ -404,7 +578,8 @@ export default function JukeboxView() {
       </section>
 
       {/* ── Lots de codes ── */}
-      <JukeboxBatches sessions={sessions} connected={status?.connected} />
+      <JukeboxBatches sessions={sessions} connected={status?.connected}
+        batches={batches} loadBatches={loadBatches} />
 
       {/* ── Catalog Sync ── */}
       <section style={{ marginBottom: 24 }}>
