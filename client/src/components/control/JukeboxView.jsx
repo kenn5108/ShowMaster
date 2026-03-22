@@ -318,6 +318,55 @@ export default function JukeboxView() {
               {currentSession.opens_at && ` · Ouverture ${formatTime(currentSession.opens_at)}`}
               {currentSession.closes_at && ` · Fermeture ${formatTime(currentSession.closes_at)}`}
             </div>
+            {/* ── Résumé opérationnel codes ── */}
+            {(() => {
+              const sessionBatches = (batches || []).filter(b => b.session_id && b.session_id == currentSession.id);
+              if (sessionBatches.length === 0) return null;
+              const gs = (b, k) => {
+                if (b.stats && b.stats[k] !== undefined) return b.stats[k];
+                if (b[`${k}_count`] !== undefined) return b[`${k}_count`];
+                if (b[k] !== undefined) return b[k];
+                return 0;
+              };
+              const t = { active: 0, used: 0, expired: 0, revoked: 0 };
+              sessionBatches.forEach(b => {
+                t.active += (typeof gs(b, 'active') === 'number' ? gs(b, 'active') : 0);
+                t.used += (typeof gs(b, 'used') === 'number' ? gs(b, 'used') : 0);
+                t.expired += (typeof gs(b, 'expired') === 'number' ? gs(b, 'expired') : 0);
+                t.revoked += (typeof gs(b, 'revoked') === 'number' ? gs(b, 'revoked') : 0);
+              });
+              const total = t.active + t.used + t.expired + t.revoked;
+              const segments = [
+                { key: 'active', count: t.active, label: 'disponibles', color: 'var(--success)' },
+                { key: 'used', count: t.used, label: 'utilisés', color: '#3b82f6' },
+                { key: 'expired', count: t.expired, label: 'expirés', color: 'var(--text-muted)' },
+                { key: 'revoked', count: t.revoked, label: 'révoqués', color: '#ef4444' },
+              ].filter(s => s.count > 0);
+              return (
+                <div style={{ marginBottom: 10, padding: '8px 10px', borderRadius: 4, background: 'rgba(255,255,255,0.02)' }}>
+                  <div style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginBottom: 4 }}>
+                    <span style={{ color: 'var(--text-muted)' }}>{sessionBatches.length} lot{sessionBatches.length > 1 ? 's' : ''}</span>
+                    {segments.map((s, i) => (
+                      <React.Fragment key={s.key}>
+                        <span style={{ color: 'var(--text-muted)' }}>·</span>
+                        <span style={{ color: s.color, fontWeight: 500 }}>{s.count} {s.label}</span>
+                      </React.Fragment>
+                    ))}
+                  </div>
+                  {total > 0 && (
+                    <div style={{ display: 'flex', borderRadius: 4, overflow: 'hidden', height: 6 }}>
+                      {segments.map(s => (
+                        <div key={s.key} style={{
+                          width: `${(s.count / total * 100)}%`,
+                          background: s.color,
+                          minWidth: s.count > 0 ? 2 : 0,
+                        }} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {getTransitions(currentSession).map(t => (
                 <button key={t.to}
