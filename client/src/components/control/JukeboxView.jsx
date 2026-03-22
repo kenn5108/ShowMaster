@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../utils/api';
 import JukeboxBatches from './JukeboxBatches';
+import JukeboxTemplates from './JukeboxTemplates';
 
 const STATUS_LABELS = {
   draft: 'Brouillon',
@@ -661,6 +662,11 @@ export default function JukeboxView() {
             </span>
           )}
         </div>
+      </section>
+
+      {/* ── Modèles de tags ── */}
+      <section style={{ marginBottom: 24 }}>
+        <JukeboxTemplates sessions={sessions} tags={tags} connected={status?.connected} />
       </section>
 
       {/* ── Tags ── */}
