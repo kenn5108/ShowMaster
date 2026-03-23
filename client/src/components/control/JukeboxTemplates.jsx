@@ -89,16 +89,27 @@ export default function JukeboxTemplates({ sessions, tags, connected }) {
   }
 
   function remoteToForm(data) {
-    const rules = (data.rules || []).map(r => ({
-      tag: r.tag,
-      hidden: !!r.hidden,
-      max_total: r.max_total != null ? String(r.max_total) : '',
-      max_pending: r.max_pending != null ? String(r.max_pending) : '',
-      visible_from: r.visible_from || '',
-      visible_until: r.visible_until || '',
-      hide_when_full: !!r.hide_when_full,
-    }));
-    const tagOrder = data.tag_order || [];
+    const rules = (data.rules || []).map(r => {
+      // Backend returns tag_name/tag_label + max_total_count/max_pending_count
+      // Form uses tag + max_total/max_pending
+      const tag = r.tag || r.tag_label || r.tag_name || '';
+      const maxTotal = r.max_total ?? r.max_total_count ?? null;
+      const maxPending = r.max_pending ?? r.max_pending_count ?? null;
+      return {
+        tag,
+        hidden: !!r.hidden,
+        max_total: maxTotal != null ? String(maxTotal) : '',
+        max_pending: maxPending != null ? String(maxPending) : '',
+        visible_from: r.visible_from || '',
+        visible_until: r.visible_until || '',
+        hide_when_full: !!r.hide_when_full,
+      };
+    });
+    // Backend tag_order can be array of strings OR array of objects { tag_name, tag_label, sort_order }
+    const rawOrder = data.tag_order || [];
+    const tagOrder = rawOrder.map(item =>
+      typeof item === 'string' ? item : (item.tag_label || item.tag_name || '')
+    ).filter(Boolean);
     const orderMode = data.order_mode || data.mode || 'placement';
     return {
       rules,
