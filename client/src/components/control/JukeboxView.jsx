@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { api } from '../../utils/api';
 import JukeboxBatches from './JukeboxBatches';
 import JukeboxTemplates from './JukeboxTemplates';
@@ -38,6 +38,11 @@ function formatTime(d) {
   return new Date(d).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
 
+function formatClock(d) {
+  if (!d) return '--:--:--';
+  return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
 // Status badge component
 function StatusBadge({ status }) {
   return (
@@ -68,6 +73,16 @@ export default function JukeboxView() {
 
   // Batches (loaded here so activation rapide + badges can use them)
   const [batches, setBatches] = useState(null);
+
+  // Clock
+  const [clock, setClock] = useState(null);          // { server_time, offset_minutes, effective_time }
+  const [clockDisplay, setClockDisplay] = useState(''); // ticking effective time
+  const [clockPopover, setClockPopover] = useState(false);
+  const [clockOffset, setClockOffset] = useState('');   // input field value
+  const [clockSaving, setClockSaving] = useState(false);
+  const clockRef = useRef(null);                      // for click-outside detection
+  const clockBaseRef = useRef(null);                  // effective_time from last poll
+  const clockTickRef = useRef(null);                  // interval id
 
   // Quick activate
   const [activateMode, setActivateMode] = useState('numbers');
@@ -108,6 +123,43 @@ export default function JukeboxView() {
       .catch(() => {});
   };
   useEffect(() => { loadBatches(); }, []);
+
+  // ── Fetch clock periodically ──
+  const fetchClock = () => {
+    api.get('/plugins/jukebox/clock').then(data => {
+      setClock(data);
+      setClockOffset(String(data.offset_minutes ?? 0));
+      // Seed the ticking display
+      clockBaseRef.current = { time: new Date(data.effective_time), fetchedAt: Date.now() };
+      setClockDisplay(formatClock(new Date(data.effective_time)));
+    }).catch(() => {});
+  };
+  useEffect(() => {
+    fetchClock();
+    const iv = setInterval(fetchClock, 10000);
+    return () => clearInterval(iv);
+  }, []);
+
+  // ── Tick the clock display every second ──
+  useEffect(() => {
+    clockTickRef.current = setInterval(() => {
+      if (!clockBaseRef.current) return;
+      const elapsed = Date.now() - clockBaseRef.current.fetchedAt;
+      const now = new Date(clockBaseRef.current.time.getTime() + elapsed);
+      setClockDisplay(formatClock(now));
+    }, 1000);
+    return () => clearInterval(clockTickRef.current);
+  }, []);
+
+  // ── Close popover on click outside ──
+  useEffect(() => {
+    if (!clockPopover) return;
+    const handler = (e) => {
+      if (clockRef.current && !clockRef.current.contains(e.target)) setClockPopover(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [clockPopover]);
 
   // ── Quick activate helpers ──
   const parseNumbers = (input) => {
@@ -251,6 +303,114 @@ export default function JukeboxView() {
       {/* ── Connection & Status ── */}
       <section style={{ marginBottom: 24 }}>
         <h3 style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 12 }}>État</h3>
+
+        {/* ── Clock — always visible ── */}
+        {clock && (
+          <div ref={clockRef} style={{ position: 'relative', marginBottom: 12 }}>
+            {/* Compact display line */}
+            <div
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '5px 12px', borderRadius: 6,
+                background: (clock.offset_minutes ?? 0) !== 0 ? 'rgba(245,158,11,0.08)' : 'rgba(255,255,255,0.04)',
+                cursor: 'pointer', userSelect: 'none',
+              }}
+              onClick={() => setClockPopover(o => !o)}
+            >
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Heure effective</span>
+              <span style={{ fontSize: 15, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: 'var(--text-primary)' }}>
+                {clockDisplay || '--:--:--'}
+              </span>
+              {(clock.offset_minutes ?? 0) !== 0 && (
+                <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600 }}>
+                  {clock.offset_minutes > 0 ? '+' : ''}{clock.offset_minutes} min
+                </span>
+              )}
+              <span style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1 }} title="Régler l'offset">⚙</span>
+            </div>
+
+            {/* Popover */}
+            {clockPopover && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 50,
+                padding: '12px 14px', borderRadius: 8, width: 300,
+                background: 'var(--bg-primary)', border: '1px solid rgba(255,255,255,0.1)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+              }}>
+                {/* Server time */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 6 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Heure serveur</span>
+                  <span style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
+                    {clock.server_time ? new Date(clock.server_time).toLocaleTimeString('fr-FR') : '—'}
+                  </span>
+                </div>
+                {/* Offset */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 6 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Offset appliqué</span>
+                  <span style={{ color: (clock.offset_minutes ?? 0) !== 0 ? '#f59e0b' : 'var(--text-primary)', fontWeight: 600 }}>
+                    {(clock.offset_minutes ?? 0) > 0 ? '+' : ''}{clock.offset_minutes ?? 0} min
+                  </span>
+                </div>
+                {/* Effective time */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 12 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Heure effective</span>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                    {clockDisplay}
+                  </span>
+                </div>
+
+                {/* Presets */}
+                <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap' }}>
+                  {[-30, -15, -5, 0, 5, 15, 30, 60].map(v => (
+                    <button key={v}
+                      className="btn btn-sm"
+                      style={{
+                        fontSize: 11, padding: '2px 8px', minWidth: 36,
+                        background: (clock.offset_minutes ?? 0) === v ? '#f59e0b' : undefined,
+                        color: (clock.offset_minutes ?? 0) === v ? '#000' : undefined,
+                        fontWeight: (clock.offset_minutes ?? 0) === v ? 700 : 400,
+                      }}
+                      disabled={clockSaving}
+                      onClick={async () => {
+                        setClockSaving(true);
+                        try {
+                          await api.put('/plugins/jukebox/clock', { offset_minutes: v });
+                          fetchClock();
+                        } catch {}
+                        setClockSaving(false);
+                      }}
+                    >
+                      {v === 0 ? '0' : (v > 0 ? `+${v}` : v)}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom offset input */}
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <label style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Offset (min)</label>
+                  <input type="number" className="input" style={{ width: 70, fontSize: 12 }}
+                    value={clockOffset} onChange={e => setClockOffset(e.target.value)} />
+                  <button
+                    className="btn btn-sm btn-primary"
+                    style={{ fontSize: 11 }}
+                    disabled={clockSaving}
+                    onClick={async () => {
+                      const val = parseInt(clockOffset, 10);
+                      if (isNaN(val)) return;
+                      setClockSaving(true);
+                      try {
+                        await api.put('/plugins/jukebox/clock', { offset_minutes: val });
+                        fetchClock();
+                      } catch {}
+                      setClockSaving(false);
+                    }}
+                  >Appliquer</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {!status ? (
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Chargement...</div>
         ) : (
